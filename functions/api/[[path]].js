@@ -173,7 +173,8 @@ async function handle(request, env, url, parts) {
 
   if (a === 'me' && method === 'GET') {
     const who = configured ? await readSession(request, env) : null;
-    return json({ ready: configured, shared: configured && env.PASS_A === env.PASS_B, auth: !!who, who });
+    const missing = [!env.PASS_A && 'PASS_A', !env.PASS_B && 'PASS_B', !env.DB && 'DB (binding D1)'].filter(Boolean);
+    return json({ ready: configured, missing, shared: configured && env.PASS_A === env.PASS_B, auth: !!who, who });
   }
   if (!configured) return fail('Website chưa được cấu hình (thiếu PASS_A, PASS_B hoặc binding DB).', 503);
 

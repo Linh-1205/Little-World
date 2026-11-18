@@ -2,6 +2,9 @@ name = "little-world"
 main = "src/worker.js"
 compatibility_date = "2025-01-01"
 
+# Giữ lại các biến/secret đã nhập trong dashboard khi deploy (nếu không, mỗi lần deploy có thể xoá mất)
+keep_vars = true
+
 # Giao diện (file tĩnh)
 [assets]
 directory = "./public"

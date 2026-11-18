@@ -51,7 +51,7 @@ async function boot() {
   } catch (e) {
     return showGate('msg', e.message);
   }
-  if (!me.ready) return showGate('msg', 'Website chưa được cấu hình xong (thiếu mật mã hoặc kết nối database/R2). Xem README để thiết lập nhé.');
+  if (!me.ready) return showGate('msg', `Website chưa được cấu hình xong. Đang thiếu: ${(me.missing || []).join(', ') || 'không rõ'}. Vào Cloudflare → Worker → Settings để thêm (xem README).`);
   if (!me.auth) return showGate(me.shared);
   enter();
 }
