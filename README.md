@@ -20,7 +20,7 @@ Project chạy như một **Worker** (giao diện tĩnh + API trong cùng một 
 
 1. **D1:** Storage & Databases → D1 → Create database `our-little-world`. Copy **Database ID** (dạng `xxxxxxxx-xxxx-...`) dán vào `database_id` trong `wrangler.toml` rồi commit. *Không cần chạy schema thủ công — bảng tự được tạo ở lần truy cập đầu tiên.*
 2. **Worker:** Workers & Pages → Create application → Import a repository → chọn repo này.
-   - Root directory: `our-little-world` (bỏ trống nếu code nằm ở thư mục gốc)
+   - Root directory: để mặc định (`/`)
    - Build command: *(để trống)* · Deploy command: `npx wrangler deploy`
 3. Sau khi deploy xong, vào Worker → **Settings → Variables and secrets** → thêm 3 **Secret**: `PASS_A`, `PASS_B` (mật mã mỗi người; đặt giống nhau nếu dùng chung) và `SESSION_SECRET` (chuỗi ngẫu nhiên dài). Lưu rồi deploy lại (Deployments → Retry) nếu cần.
 4. Mở địa chỉ `xxx.workers.dev`, đăng nhập, vào ⚙ để đặt tên hai người và ngày yêu nhau.
