@@ -325,7 +325,7 @@ function renderMemories() {
   b.replaceChildren(
     h('div', { class: 'filters' }, h('div', { class: 'row' }, day, mon, q), tags.length ? h('div', { class: 'chips' }, chip('', 'Tất cả'), tags.map((x) => chip(x, x))) : null,
       hasFilter ? h('button', { class: 'link-btn', onclick: () => (Object.assign(mf, { q: '', month: '', tag: '', day: '' }), rerender()) }, 'Xoá bộ lọc') : null),
-    list.length ? grid : empty('Không có kỷ niệm nào khớp với bộ lọc.'),
+    list.length ? h('div', null, grid) : empty('Không có kỷ niệm nào khớp với bộ lọc.'),
   );
 }
 const memItem = (m) => ({ id: m.id, src: mu(m.media_key), type: m.media_type, caption: m.caption, date: m.date, tag: m.tag, mem: m });
@@ -656,7 +656,7 @@ function renderDays() {
       h('div', { class: 'ic' }, e.icon),
       h('h4', null, e.title, e.row?.yearly ? h('span', { class: 'tag' }, 'hằng năm') : null),
       h('div', { class: 'dt' }, e.days < 0 ? fmtDate(e.row.date) + ' · đã qua' : fmtDate(ymd(e.date))),
-      e.days >= 0 ? h('div', { class: 'left' }, e.days === 0 ? 'Hôm nay rồi! 🎉' : `Còn ${e.days} ngày`) : null,
+      e.days >= 0 ? h('div', { class: 'left' }, e.days === 0 ? 'Hôm nay rồi! 🎉' : e.days === 1 ? 'Ngày mai rồi! ✨' : `Còn ${e.days} ngày`) : null,
       e.note ? h('p', { class: 'nt' }, e.note) : null,
       e.row ? rowActs(() => openDayForm(e.row), async () => (await confirmBox('Xoá ngày này?')) && (await crud.del('special_days', e.row.id), refresh(() => (renderDays(), renderHero())))) : h('div', { class: 'dt' }, '✦ tự động tính')))),
   );

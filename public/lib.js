@@ -4,6 +4,14 @@
 // khả năng của máy chủ: không có R2 thì ảnh lưu trong D1 (giới hạn nhỏ, không có video/nhạc)
 const CAPS = { r2: true };
 
+// replaceChildren/append mặc định biến null, false và mảng thành chữ "null", "[object ...]": lọc và trải phẳng
+for (const m of ['replaceChildren', 'append', 'prepend']) {
+  const orig = Element.prototype[m];
+  Element.prototype[m] = function (...kids) {
+    return orig.apply(this, kids.flat(Infinity).filter((k) => k != null && k !== false));
+  };
+}
+
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
