@@ -115,6 +115,7 @@ async function enter() {
 
 async function load() {
   Object.assign(S, await api('data'));
+  CAPS.r2 = S.caps?.r2 !== false;
 }
 
 function buildShell() {
@@ -332,7 +333,7 @@ const memItem = (m) => ({ id: m.id, src: mu(m.media_key), type: m.media_type, ca
 function openMemoryForm(preset) {
   const files = []; // {blob,type,w,h,url}
   const thumbs = h('div', { class: 'thumbs' });
-  const input = h('input', { type: 'file', accept: 'image/*,video/mp4,video/webm,video/quicktime', multiple: true, hidden: true });
+  const input = h('input', { type: 'file', accept: CAPS.r2 ? 'image/*,video/mp4,video/webm,video/quicktime' : 'image/*', multiple: true, hidden: true });
   const paint = () => thumbs.replaceChildren(...files.map((f, i) =>
     h('div', { class: 'thumb' },
       f.type === 'video' ? h('video', { src: f.url, muted: true, playsinline: true }) : h('img', { src: f.url, alt: '' }),
@@ -342,6 +343,7 @@ function openMemoryForm(preset) {
     for (const f of list) {
       try {
         if (f.type.startsWith('video/')) {
+          if (!CAPS.r2) { toast('Video cần bật R2 — hiện chỉ lưu được ảnh'); continue; }
           if (f.size > 60 * 1024 * 1024) { toast(`“${f.name}” quá lớn (tối đa 60MB)`); continue; }
           files.push({ blob: f, type: 'video', url: URL.createObjectURL(f) });
         } else if (f.type.startsWith('image/')) {
@@ -353,7 +355,7 @@ function openMemoryForm(preset) {
     paint();
   };
   input.addEventListener('change', async () => { const l = [...input.files]; input.value = ''; await addFiles(l); });
-  const pickBtn = h('button', { type: 'button', class: 'btn ghost', onclick: () => input.click() }, '📷 Chọn ảnh / video');
+  const pickBtn = h('button', { type: 'button', class: 'btn ghost', onclick: () => input.click() }, CAPS.r2 ? '📷 Chọn ảnh / video' : '📷 Chọn ảnh');
   const m = formModal({
     title: 'Thêm kỷ niệm',
     values: { date: todayStr() },
@@ -572,7 +574,7 @@ function openBgmForm() {
     },
     extra: S.settings.bgm_key || S.settings.bgm_url ? h('button', { type: 'button', class: 'btn ghost danger', onclick: async () => { await api('settings', { method: 'PUT', body: { bgm_key: '', bgm_url: '' } }); await refresh(renderPlaylist); initBgm(true); m.close(); } }, 'Tắt nhạc nền') : null,
   });
-  $('form', m.el).prepend(h('div', { class: 'fld' }, h('span', { class: 'lbl' }, 'Tải nhạc từ máy (tối đa 25MB)'), input));
+  if (CAPS.r2) $('form', m.el).prepend(h('div', { class: 'fld' }, h('span', { class: 'lbl' }, 'Tải nhạc từ máy (tối đa 25MB)'), input));
 }
 function bgmSrc() { return S.settings.bgm_key ? mu(S.settings.bgm_key) : S.settings.bgm_url || ''; }
 function initBgm(force) {

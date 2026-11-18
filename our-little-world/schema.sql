@@ -105,3 +105,12 @@ CREATE TABLE IF NOT EXISTS login_fails (
   ts INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_login_fails ON login_fails(ip, ts);
+
+-- Ảnh lưu trực tiếp trong D1 (dùng khi không bật R2)
+CREATE TABLE IF NOT EXISTS media (
+  key TEXT PRIMARY KEY,
+  type TEXT NOT NULL,
+  size INTEGER,
+  data BLOB NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);

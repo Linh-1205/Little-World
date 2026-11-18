@@ -508,9 +508,9 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
     try {
       select(null);
       render(true);
-      const blob = await toBlob(cv, 'image/jpeg', 0.92);
+      const r = await fitCanvas(cv, 0.92);
       m.close();
-      onDone && onDone(blob, cv.width, cv.height);
+      onDone && onDone(r.blob, r.w, r.h);
     } catch (e) {
       toast(e.message);
       done.disabled = false;

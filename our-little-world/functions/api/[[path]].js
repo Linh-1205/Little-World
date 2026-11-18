@@ -61,6 +61,7 @@ const MIME = {
 };
 const MB = 1024 * 1024;
 const LIMITS = { image: 15 * MB, video: 60 * MB, audio: 25 * MB };
+const D1_IMAGE_MAX = 1500 * 1024; // khi không có R2: ảnh lưu trong D1, mỗi dòng tối đa ~2MB
 const KEY_RE = /^\d{4}\/[a-f0-9-]{36}\.[a-z0-9]{2,5}$/;
 
 const other = (w) => (w === 'A' ? 'B' : 'A');
@@ -137,7 +138,10 @@ async function listTable(env, t, me) {
 }
 
 async function dropMedia(env, ...keys) {
-  await Promise.all(keys.filter((k) => k && KEY_RE.test(k)).map((k) => env.BUCKET.delete(k).catch(() => {})));
+  const ks = keys.filter((k) => k && KEY_RE.test(k));
+  if (!ks.length) return;
+  if (env.BUCKET) await Promise.all(ks.map((k) => env.BUCKET.delete(k).catch(() => {})));
+  await env.DB.batch(ks.map((k) => env.DB.prepare('DELETE FROM media WHERE key = ?').bind(k))).catch(() => {});
 }
 
 const q = (name) => `"${name}"`;
@@ -162,7 +166,7 @@ export async function onRequest({ request, env }) {
 async function handle(request, env, url, parts) {
   const method = request.method;
   const [a, b, c] = parts;
-  const configured = !!(env.PASS_A && env.PASS_B && env.DB && env.BUCKET);
+  const configured = !!(env.PASS_A && env.PASS_B && env.DB); // BUCKET (R2) là tuỳ chọn
 
   // chống CSRF: mọi yêu cầu ghi phải có header tự đặt (form chéo trang không gửi được)
   if (method !== 'GET' && method !== 'HEAD' && request.headers.get('x-lw') !== '1') return fail('Yêu cầu không hợp lệ', 403);
@@ -171,7 +175,7 @@ async function handle(request, env, url, parts) {
     const who = configured ? await readSession(request, env) : null;
     return json({ ready: configured, shared: configured && env.PASS_A === env.PASS_B, auth: !!who, who });
   }
-  if (!configured) return fail('Website chưa được cấu hình (thiếu PASS_A, PASS_B hoặc binding DB/BUCKET).', 503);
+  if (!configured) return fail('Website chưa được cấu hình (thiếu PASS_A, PASS_B hoặc binding DB).', 503);
 
   if (a === 'login' && method === 'POST') return login(request, env, url);
   if (a === 'logout' && method === 'POST') return json({ ok: true }, 200, { 'set-cookie': cookie('', url, 0) });
@@ -181,7 +185,7 @@ async function handle(request, env, url, parts) {
 
   /* --- toàn bộ dữ liệu --- */
   if (a === 'data' && method === 'GET') {
-    const out = { me };
+    const out = { me, caps: { r2: !!env.BUCKET } };
     const s = await env.DB.prepare('SELECT k, v FROM settings').all();
     out.settings = Object.fromEntries(s.results.map((r) => [r.k, r.v]));
     for (const t of Object.keys(TABLES)) out[t] = await listTable(env, t, me);
@@ -217,11 +221,21 @@ async function handle(request, env, url, parts) {
     const type = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
     const ext = MIME[type];
     if (!ext) return fail('Định dạng tệp chưa được hỗ trợ', 415);
-    const len = Number(request.headers.get('content-length') || 0);
-    if (!len) return fail('Thiếu kích thước tệp', 411);
-    if (len > LIMITS[type.split('/')[0]]) return fail('Tệp quá lớn', 413);
+    const kind = type.split('/')[0];
     const key = `${new Date().getUTCFullYear()}/${crypto.randomUUID()}.${ext}`;
-    await env.BUCKET.put(key, request.body, { httpMetadata: { contentType: type } });
+    if (env.BUCKET) {
+      const len = Number(request.headers.get('content-length') || 0);
+      if (!len) return fail('Thiếu kích thước tệp', 411);
+      if (len > LIMITS[kind]) return fail('Tệp quá lớn', 413);
+      await env.BUCKET.put(key, request.body, { httpMetadata: { contentType: type } });
+      return json({ key });
+    }
+    // chế độ không R2: lưu ảnh trực tiếp trong D1
+    if (kind !== 'image') return fail('Video và nhạc cần bật R2. Hiện chỉ lưu được ảnh.', 415);
+    const buf = await request.arrayBuffer();
+    if (!buf.byteLength) return fail('Tệp rỗng', 400);
+    if (buf.byteLength > D1_IMAGE_MAX) return fail('Ảnh quá lớn (tối đa ~1,5MB), hãy chọn ảnh nhỏ hơn.', 413);
+    await env.DB.prepare('INSERT INTO media (key, type, size, data) VALUES (?, ?, ?, ?)').bind(key, type, buf.byteLength, buf).run();
     return json({ key });
   }
 
@@ -230,22 +244,31 @@ async function handle(request, env, url, parts) {
     const key = parts.slice(1).join('/');
     if (!KEY_RE.test(key)) return fail('Không tìm thấy', 404);
     const hasRange = request.headers.has('range');
-    const obj = await env.BUCKET.get(key, hasRange ? { range: request.headers } : undefined);
-    if (!obj) return fail('Không tìm thấy', 404);
-    const headers = new Headers();
-    obj.writeHttpMetadata(headers);
-    headers.set('etag', obj.httpEtag);
-    headers.set('accept-ranges', 'bytes');
-    headers.set('cache-control', 'private, max-age=31536000, immutable');
-    headers.set('x-content-type-options', 'nosniff');
-    let status = 200;
-    if (hasRange && obj.range) {
-      const off = obj.range.offset ?? 0;
-      const len = obj.range.length ?? obj.size - off;
-      headers.set('content-range', `bytes ${off}-${off + len - 1}/${obj.size}`);
-      status = 206;
+    const obj = env.BUCKET ? await env.BUCKET.get(key, hasRange ? { range: request.headers } : undefined) : null;
+    if (obj) {
+      const headers = new Headers();
+      obj.writeHttpMetadata(headers);
+      headers.set('etag', obj.httpEtag);
+      headers.set('accept-ranges', 'bytes');
+      headers.set('cache-control', 'private, max-age=31536000, immutable');
+      headers.set('x-content-type-options', 'nosniff');
+      let status = 200;
+      if (hasRange && obj.range) {
+        const off = obj.range.offset ?? 0;
+        const len = obj.range.length ?? obj.size - off;
+        headers.set('content-range', `bytes ${off}-${off + len - 1}/${obj.size}`);
+        status = 206;
+      }
+      return new Response(method === 'HEAD' ? null : obj.body, { status, headers });
     }
-    return new Response(method === 'HEAD' ? null : obj.body, { status, headers });
+    // ảnh lưu trong D1
+    const row = await env.DB.prepare('SELECT type, data FROM media WHERE key = ?').bind(key).first();
+    if (!row) return fail('Không tìm thấy', 404);
+    const d = row.data;
+    const body = d instanceof ArrayBuffer ? d : new Uint8Array(d).buffer;
+    return new Response(method === 'HEAD' ? null : body, {
+      headers: { 'content-type': row.type, 'cache-control': 'private, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' },
+    });
   }
 
   /* --- các bảng dữ liệu --- */

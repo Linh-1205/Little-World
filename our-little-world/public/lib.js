@@ -1,6 +1,9 @@
 'use strict';
 /* Tiện ích dùng chung: DOM, API, modal, toast, ngày tháng, xử lý ảnh */
 
+// khả năng của máy chủ: không có R2 thì ảnh lưu trong D1 (giới hạn nhỏ, không có video/nhạc)
+const CAPS = { r2: true };
+
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -204,9 +207,27 @@ function loadImg(url) {
 }
 const toBlob = (cv, type = 'image/jpeg', q = 0.9) => new Promise((res, rej) => cv.toBlob((b) => (b ? res(b) : rej(new Error('Không xử lý được ảnh'))), type, q));
 
+// xuất canvas ra JPEG; nếu không có R2 thì hạ chất lượng/kích thước cho đến khi ≤ ~1,2MB
+async function fitCanvas(cv, q = 0.9) {
+  const limit = CAPS.r2 ? 14 * 1024 * 1024 : 1200 * 1024;
+  let c = cv, quality = q;
+  let blob = await toBlob(c, 'image/jpeg', quality);
+  for (let i = 0; blob.size > limit && i < 10; i++) {
+    if (quality > 0.62) quality -= 0.1;
+    else {
+      const n = h('canvas', { width: Math.round(c.width * 0.85), height: Math.round(c.height * 0.85) });
+      n.getContext('2d').drawImage(c, 0, 0, n.width, n.height);
+      c = n;
+    }
+    blob = await toBlob(c, 'image/jpeg', quality);
+  }
+  return { blob, w: c.width, h: c.height };
+}
+
 // thu nhỏ ảnh lớn để tiết kiệm dung lượng, GIF giữ nguyên
 async function prepImage(file, max = 2200) {
   if (file.type === 'image/gif') {
+    if (!CAPS.r2 && file.size > 1500 * 1024) throw new Error('Ảnh GIF quá lớn (tối đa ~1,5MB)');
     const u = URL.createObjectURL(file);
     const im = await loadImg(u);
     return { blob: file, w: im.naturalWidth, h: im.naturalHeight };
@@ -221,7 +242,7 @@ async function prepImage(file, max = 2200) {
     c.fillStyle = '#fff';
     c.fillRect(0, 0, w, hh);
     c.drawImage(im, 0, 0, w, hh);
-    return { blob: await toBlob(cv, 'image/jpeg', 0.88), w, h: hh };
+    return await fitCanvas(cv, 0.88);
   } finally {
     URL.revokeObjectURL(u);
   }

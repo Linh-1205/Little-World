@@ -4,7 +4,7 @@
   "private": true,
   "description": "Website lưu giữ kỷ niệm cho hai người — Cloudflare Pages + D1 + R2",
   "scripts": {
-    "dev": "wrangler pages dev public --d1 DB --r2 BUCKET --port 8788",
+    "dev": "wrangler pages dev public --d1 DB --port 8788",
     "db:local": "wrangler d1 execute our-little-world --local --file=schema.sql",
     "db:remote": "wrangler d1 execute our-little-world --remote --file=schema.sql",
     "deploy": "wrangler pages deploy public --project-name our-little-world"
