@@ -1,0 +1,5 @@
+# Copy file này thành .dev.vars để chạy thử trên máy (wrangler pages dev)
+# Khi deploy thật, đặt bằng: wrangler pages secret put PASS_A  (và PASS_B, SESSION_SECRET)
+PASS_A=mat-ma-cua-nguoi-A
+PASS_B=mat-ma-cua-nguoi-B
+SESSION_SECRET=mot-chuoi-ngau-nhien-that-dai-va-kho-doan
