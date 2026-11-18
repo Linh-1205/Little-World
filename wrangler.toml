@@ -1,4 +1,4 @@
-name = "our-little-world"
+name = "little-world"
 main = "src/worker.js"
 compatibility_date = "2025-01-01"
 
@@ -7,11 +7,11 @@ compatibility_date = "2025-01-01"
 directory = "./public"
 binding = "ASSETS"
 
-# Database D1 — dán database_id của database "our-little-world" (Storage & Databases → D1)
+# Database D1 — không cần điền database_id: lần deploy đầu wrangler (>= 4.45) tự tạo database
+# "little-world-db" và gắn vào biến DB. Bảng được tự tạo ở lần truy cập đầu tiên.
 [[d1_databases]]
 binding = "DB"
-database_name = "our-little-world"
-database_id = "PASTE_YOUR_D1_DATABASE_ID"
+database_name = "little-world-db"
 
 # (Tuỳ chọn) R2 để lưu video/nhạc và ảnh chất lượng cao — cần bật R2 (có nhập thẻ).
 # Bỏ comment sau khi tạo bucket:

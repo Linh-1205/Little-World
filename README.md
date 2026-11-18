@@ -18,7 +18,7 @@ Home (đếm thời gian bên nhau, câu nói đổi mỗi lần vào) · Our St
 
 Project chạy như một **Worker** (giao diện tĩnh + API trong cùng một Worker), deploy tự động từ GitHub.
 
-1. **D1:** Storage & Databases → D1 → Create database `our-little-world`. Copy **Database ID** (dạng `xxxxxxxx-xxxx-...`) dán vào `database_id` trong `wrangler.toml` rồi commit. *Không cần chạy schema thủ công — bảng tự được tạo ở lần truy cập đầu tiên.*
+1. *(Bỏ qua)* Không cần tạo D1 thủ công: lần deploy đầu wrangler tự tạo database `little-world-db` và gắn vào biến `DB`; bảng tự được tạo ở lần truy cập đầu tiên.
 2. **Worker:** Workers & Pages → Create application → Import a repository → chọn repo này.
    - Root directory: để mặc định (`/`)
    - Build command: *(để trống)* · Deploy command: `npx wrangler deploy`
