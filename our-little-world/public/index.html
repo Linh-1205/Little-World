@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Our Little World</title>
+<meta name="theme-color" content="#fbf3ea">
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%B8%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Dancing+Script:wght@500;600&family=Playfair+Display:ital,wght@0,500;1,500&display=swap">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+<!-- Cổng đăng nhập -->
+<div id="gate" class="gate" hidden>
+  <form class="gate-card glass" id="gateForm" autocomplete="on">
+    <div class="gate-mark">♡</div>
+    <h1>Our Little World</h1>
+    <p class="muted" id="gateText">Nhập mật mã để bước vào thế giới nhỏ của hai mình.</p>
+    <div id="whoPick" class="seg" hidden>
+      <button type="button" data-who="A" class="on">Mình là Người A</button>
+      <button type="button" data-who="B">Mình là Người B</button>
+    </div>
+    <input type="password" id="pw" placeholder="Mật mã" autocomplete="current-password" required>
+    <button class="btn primary" id="gateBtn">Bước vào</button>
+    <p class="err" id="gateErr" role="alert"></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <header class="nav" id="nav">
+    <a class="brand" href="#home"><span>♡</span> Our Little World</a>
+    <nav class="links" id="links" aria-label="Các khu vực"></nav>
+    <div class="nav-actions">
+      <button class="icon-btn" id="bgmBtn" title="Nhạc nền" aria-label="Bật hoặc tắt nhạc nền">♪</button>
+      <button class="icon-btn" id="setBtn" title="Cài đặt" aria-label="Cài đặt">⚙</button>
+      <button class="icon-btn menu-btn" id="menuBtn" aria-label="Mở menu">☰</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- 01 · Home -->
+    <section id="home" class="hero">
+      <div class="wrap hero-grid">
+        <div class="hero-text">
+          <p class="eyebrow reveal">Welcome to our little world.</p>
+          <h1 class="names reveal" id="names"></h1>
+          <p class="since reveal" id="since"></p>
+          <div class="counter reveal" id="counter" aria-live="off">
+            <div class="cbox glass"><b id="cd">0</b><span>ngày</span></div>
+            <div class="cbox glass"><b id="ch">0</b><span>giờ</span></div>
+            <div class="cbox glass"><b id="cm">0</b><span>phút</span></div>
+            <div class="cbox glass"><b id="cs">0</b><span>giây</span></div>
+          </div>
+          <p class="ytd reveal" id="ytd"></p>
+          <div class="hero-actions reveal">
+            <a class="btn primary" href="#memories">Explore Our Memories</a>
+            <button class="btn ghost" id="setupBtn" hidden>Thiết lập tên &amp; ngày yêu</button>
+          </div>
+          <blockquote class="quote glass reveal" id="quote"></blockquote>
+          <div class="remind reveal" id="remind"></div>
+        </div>
+        <div class="hero-photo reveal">
+          <div class="arch" id="heroPhoto"></div>
+          <span class="spark s1">✦</span><span class="spark s2">✧</span><span class="spark s3">✦</span>
+        </div>
+      </div>
+      <a class="scroll-hint" href="#story" aria-label="Cuộn xuống">⌄</a>
+    </section>
+
+    <div id="sections"></div>
+  </main>
+
+  <footer class="foot">Made with love · Our Little World</footer>
+  <audio id="bgm" loop preload="none"></audio>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<script src="/lib.js"></script>
+<script src="/editor.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

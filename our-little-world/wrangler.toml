@@ -1,0 +1,14 @@
+name = "our-little-world"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "./public"
+
+# Database (D1) — chạy `wrangler d1 create our-little-world` rồi dán database_id vào đây
+[[d1_databases]]
+binding = "DB"
+database_name = "our-little-world"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+# Nơi lưu ảnh / video / nhạc (R2)
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "our-little-world-media"
