@@ -54,7 +54,7 @@ async function api(path, { method = 'GET', body, blob } = {}) {
   }
   const d = await r.json().catch(() => ({}));
   if (r.status === 401 && path !== 'login' && typeof onLoggedOut === 'function') onLoggedOut();
-  if (!r.ok) throw new Error(d.error || 'Có lỗi xảy ra');
+  if (!r.ok) throw new Error((d.error || 'Có lỗi xảy ra') + (d.detail ? ` (${d.detail})` : ''));
   return d;
 }
 const mu = (key) => '/api/media/' + key;
