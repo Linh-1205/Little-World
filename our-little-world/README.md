@@ -5,8 +5,7 @@ Chạy hoàn toàn trên **Cloudflare** (miễn phí cho nhu cầu cá nhân):
 
 | Thành phần | Dùng để |
 |---|---|
-| **Pages** | Host giao diện (`public/`) |
-| **Pages Functions** | API (`functions/api/[[path]].js`) |
+| **Workers** (+ static assets) | Host giao diện (`public/`) và API (`functions/api/[[path]].js`, điểm vào `src/worker.js`) |
 | **D1** | Database (ảnh bìa, cột mốc, thư, bài hát, ngày đặc biệt…) |
 | **R2** *(tuỳ chọn)* | Lưu video, nhạc và ảnh chất lượng cao. Không có R2 thì ảnh được lưu trong D1 (tự nén ≤ ~1,2MB, chưa hỗ trợ video/nhạc tải lên) |
 
@@ -17,27 +16,23 @@ Home (đếm thời gian bên nhau, câu nói đổi mỗi lần vào) · Our St
 
 ## Cài đặt trên Cloudflare (không cần thẻ, không cần R2)
 
-> ⚠️ Phải tạo **Pages** (đuôi `.pages.dev`), **không phải Worker**. Nếu log build có dòng `npx wrangler deploy` nghĩa là đã tạo nhầm Worker.
+Project chạy như một **Worker** (giao diện tĩnh + API trong cùng một Worker), deploy tự động từ GitHub.
 
-1. **D1:** Storage & Databases → D1 → Create database `our-little-world` → tab **Console** → dán toàn bộ `schema.sql` → Run.
-2. **Pages:** Workers & Pages → Create application → dòng nhỏ **"Looking to deploy Pages? Get started"** → Import an existing Git repository → chọn repo này.
+1. **D1:** Storage & Databases → D1 → Create database `our-little-world`. Copy **Database ID** (dạng `xxxxxxxx-xxxx-...`) dán vào `database_id` trong `wrangler.toml` rồi commit. *Không cần chạy schema thủ công — bảng tự được tạo ở lần truy cập đầu tiên.*
+2. **Worker:** Workers & Pages → Create application → Import a repository → chọn repo này.
    - Root directory: `our-little-world` (bỏ trống nếu code nằm ở thư mục gốc)
-   - Build command: *(để trống)* · Build output directory: `public`
-3. **Settings → Bindings → Add → D1 database:** Variable name `DB`, chọn database ở bước 1.
-4. **Settings → Variables and secrets:** thêm `PASS_A`, `PASS_B` (mật mã của mỗi người; đặt giống nhau nếu dùng chung) và `SESSION_SECRET` (chuỗi ngẫu nhiên dài). Chọn kiểu *Secret*.
-5. **Deployments → Retry deployment.**
+   - Build command: *(để trống)* · Deploy command: `npx wrangler deploy`
+3. Sau khi deploy xong, vào Worker → **Settings → Variables and secrets** → thêm 3 **Secret**: `PASS_A`, `PASS_B` (mật mã mỗi người; đặt giống nhau nếu dùng chung) và `SESSION_SECRET` (chuỗi ngẫu nhiên dài). Lưu rồi deploy lại (Deployments → Retry) nếu cần.
+4. Mở địa chỉ `xxx.workers.dev`, đăng nhập, vào ⚙ để đặt tên hai người và ngày yêu nhau.
 
-*(Tuỳ chọn)* Bật R2, tạo bucket, rồi thêm binding **R2 bucket** tên `BUCKET` để tải được video/nhạc và ảnh chất lượng cao.
-
-Deploy bằng CLI thay vì Git: xem `wrangler.toml.example`, đổi tên thành `wrangler.toml`, điền `database_id`, rồi `npm run deploy`.
+*(Tuỳ chọn)* Bật R2, tạo bucket `our-little-world-media`, bỏ comment khối `[[r2_buckets]]` trong `wrangler.toml` để tải được video/nhạc và ảnh chất lượng cao.
 
 ## Chạy thử trên máy
 
 ```bash
 cp .dev.vars.example .dev.vars
-cp wrangler.toml.example wrangler.toml   # điền database_id bất kỳ khi chạy cục bộ
-npm run db:local      # tạo bảng trong D1 cục bộ
-npm run dev           # http://localhost:8788
+# (đặt tạm database_id bất kỳ trong wrangler.toml khi chạy cục bộ)
+npm run dev           # http://localhost:8788 — bảng D1 cục bộ tự được tạo
 ```
 
 ## Bảo mật

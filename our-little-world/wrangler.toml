@@ -1,0 +1,20 @@
+name = "our-little-world"
+main = "src/worker.js"
+compatibility_date = "2025-01-01"
+
+# Giao diện (file tĩnh)
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# Database D1 — dán database_id của database "our-little-world" (Storage & Databases → D1)
+[[d1_databases]]
+binding = "DB"
+database_name = "our-little-world"
+database_id = "PASTE_YOUR_D1_DATABASE_ID"
+
+# (Tuỳ chọn) R2 để lưu video/nhạc và ảnh chất lượng cao — cần bật R2 (có nhập thẻ).
+# Bỏ comment sau khi tạo bucket:
+# [[r2_buckets]]
+# binding = "BUCKET"
+# bucket_name = "our-little-world-media"
