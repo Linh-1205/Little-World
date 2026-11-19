@@ -28,9 +28,9 @@ const QUOTES = [
   'Some people are worth every sunrise we share.',
   'Một cái nắm tay, cả thế giới bỗng nhỏ lại vừa đủ cho hai ta.',
 ];
-const KIND_ICON = { birthday: '🎂', anniversary: '💞', valentine: '💌', other: '🎀' };
+const KIND_ICON = { birthday: '❋', anniversary: '♡', valentine: '♥\uFE0E', other: '✦' };
 const KIND_NAME = { birthday: 'Sinh nhật', anniversary: 'Kỷ niệm', valentine: 'Valentine', other: 'Ngày đặc biệt' };
-const LITTLE = { funny: ['😆', 'Câu nói hài hước'], nickname: ['🐰', 'Biệt danh'], moment: ['🌷', 'Khoảnh khắc đáng yêu'], silly: ['🤪', 'Chuyện ngớ ngẩn'], like: ['💗', 'Điều thích ở nhau'], secret: ['🤫', 'Chỉ hai mình hiểu'] };
+const LITTLE = { funny: ['✧', 'Câu nói hài hước'], nickname: ['❀', 'Biệt danh'], moment: ['✿', 'Khoảnh khắc đáng yêu'], silly: ['❋', 'Chuyện ngớ ngẩn'], like: ['♡', 'Điều thích ở nhau'], secret: ['✦', 'Chỉ hai mình hiểu'] };
 
 const nm = (w) => (w === 'A' ? S.settings.name_a || 'Người A' : S.settings.name_b || 'Người B');
 const partner = () => (S.me === 'A' ? 'B' : 'A');
@@ -292,7 +292,7 @@ const MEM_TAGS = ['Hẹn hò', 'Du lịch', 'Sinh nhật', 'Ăn uống', 'Hằng
 const mf = { q: '', month: '', tag: '', day: '' };
 function renderMemories() {
   const t = $('#memories-tools');
-  t.replaceChildren(addBtn('＋ Thêm kỷ niệm', () => openMemoryForm()), h('button', { class: 'btn ghost', onclick: () => openEditor({ onDone: (blob) => openMemoryForm([{ blob, type: 'image' }]) }) }, '✏️ Vẽ một bức tranh'));
+  t.replaceChildren(addBtn('＋ Thêm kỷ niệm', () => openMemoryForm()));
   const b = $('#memories-body');
   if (!S.memories.length) return b.replaceChildren(empty('Chưa có kỷ niệm nào. Tải lên tấm ảnh đầu tiên của hai bạn nhé.'));
   const months = [...new Set(S.memories.map((m) => m.date.slice(0, 7)))];
@@ -338,7 +338,7 @@ function openMemoryForm(preset) {
     h('div', { class: 'thumb' },
       f.type === 'video' ? h('video', { src: f.url, muted: true, playsinline: true }) : h('img', { src: f.url, alt: '' }),
       h('button', { type: 'button', class: 'x', 'aria-label': 'Bỏ', onclick: () => (files.splice(i, 1), paint()) }, '✕'),
-      f.type === 'image' ? h('button', { type: 'button', class: 'dec', onclick: () => openEditor({ src: f.url, onDone: async (blob, w, hh) => (Object.assign(f, { blob, w, h: hh, url: URL.createObjectURL(blob) }), paint()) }) }, '🎨 Trang trí') : null)));
+      f.type === 'image' ? h('button', { type: 'button', class: 'dec', onclick: () => openEditor({ src: f.url, onDone: async (blob, w, hh) => (Object.assign(f, { blob, w, h: hh, url: URL.createObjectURL(blob) }), paint()) }) }, '✎ Trang trí & vẽ') : null)));
   const addFiles = async (list) => {
     for (const f of list) {
       try {
@@ -355,7 +355,7 @@ function openMemoryForm(preset) {
     paint();
   };
   input.addEventListener('change', async () => { const l = [...input.files]; input.value = ''; await addFiles(l); });
-  const pickBtn = h('button', { type: 'button', class: 'btn ghost', onclick: () => input.click() }, CAPS.r2 ? '📷 Chọn ảnh / video' : '📷 Chọn ảnh');
+  const pickBtn = h('button', { type: 'button', class: 'btn ghost', onclick: () => input.click() }, CAPS.r2 ? '＋ Chọn ảnh / video' : '＋ Chọn ảnh');
   const m = formModal({
     title: 'Thêm kỷ niệm',
     values: { date: todayStr() },
@@ -376,12 +376,12 @@ function openMemoryForm(preset) {
         }
       } finally { note.remove(); }
       await refresh(renderMemories);
-      toast('Đã lưu kỷ niệm 💗');
+      toast('Đã lưu kỷ niệm ♡');
     },
     extra: null,
   });
   const form = $('form', m.el);
-  form.prepend(h('div', { class: 'fld' }, h('span', { class: 'lbl' }, 'Ảnh & video'), pickBtn, input, thumbs));
+  form.prepend(h('div', { class: 'fld' }, h('span', { class: 'lbl' }, 'Ảnh & video'), pickBtn, input, thumbs, h('span', { class: 'hint' }, 'Sau khi chọn ảnh, bấm “Trang trí & vẽ” trên ảnh để thêm khung, nhãn dán, chữ hoặc vẽ tay.')));
   if (preset) addFiles([]).then(async () => { for (const p of preset) files.push({ ...p, url: URL.createObjectURL(p.blob) }); paint(); });
 }
 
@@ -401,7 +401,7 @@ function openMemoryEdit(mem, after) {
         await crud.save('memories', mem.id, { media_key: key, w, h: hh, media_type: 'image' });
         await refresh(renderMemories); m.close(); after && after(); toast('Đã cập nhật ảnh');
       } catch (e) { toast(e.message); }
-    } }) }, '🎨 Trang trí lại ảnh') : null,
+    } }) }, '✎ Trang trí & vẽ lại ảnh') : null,
   });
 }
 
@@ -424,7 +424,7 @@ function lightbox(items, i) {
     bot.replaceChildren(
       h('div', { class: 'cap' }, it.caption || ''),
       h('div', { class: 'chips' },
-        h('a', { class: 'btn ghost sm', href: it.src, download: '' }, '⬇ Tải về'),
+        h('a', { class: 'btn ghost sm', href: it.src, download: '' }, '↓ Tải về'),
         it.mem ? h('button', { class: 'btn ghost sm', onclick: () => { close(); openMemoryEdit(it.mem); } }, 'Sửa') : null,
         it.mem ? h('button', { class: 'btn ghost sm danger', onclick: async () => { if (await confirmBox('Xoá kỷ niệm này?')) { await crud.del('memories', it.mem.id); close(); refresh(renderMemories); } } }, 'Xoá') : null),
     );
@@ -446,18 +446,18 @@ function openLetterForm(row) {
   formModal({
     title: row ? 'Sửa thư' : 'Viết thư',
     values: row || {},
-    submit: row ? 'Lưu thư' : 'Gửi thư 💌',
+    submit: row ? 'Lưu thư' : 'Gửi thư ♡',
     fields: [
       { name: 'title', label: 'Tiêu đề', ph: 'Gửi người thương…' },
       { name: 'body', label: 'Nội dung', type: 'textarea', rows: 9, required: true, ph: 'Những điều muốn nói…' },
       { name: 'is_private', label: 'Thư riêng tư — chỉ mình mình đọc được (những lời chưa từng nói)', type: 'check' },
       { name: 'unlock_at', label: 'Gửi bất ngờ: thư chỉ mở được từ ngày', type: 'date', iso: true, min: todayStr(), hint: 'Để trống nếu muốn người ấy đọc ngay.' },
     ],
-    onSubmit: async (v) => { await crud.save('letters', row?.id, v); await refresh(renderLetters); toast(v.is_private ? 'Đã cất thư vào ngăn riêng 🤍' : 'Thư đã được gửi 💌'); },
+    onSubmit: async (v) => { await crud.save('letters', row?.id, v); await refresh(renderLetters); toast(v.is_private ? 'Đã cất thư vào ngăn riêng' : 'Thư đã được gửi ♡'); },
   });
 }
 function renderLetters() {
-  $('#letters-tools').replaceChildren(addBtn('✉ Viết thư mới', () => openLetterForm()));
+  $('#letters-tools').replaceChildren(addBtn('＋ Viết thư mới', () => openLetterForm()));
   const mine = (r) => r.from_who === S.me;
   const tabs = {
     inbox: ['Thư nhận được', S.letters.filter((r) => !mine(r))],
@@ -475,7 +475,7 @@ function renderLetters() {
           const fresh = !mine(r) && !r.opened_at && !lock;
           return h('button', { class: 'env reveal' + (lock ? ' lockd' : ''), onclick: () => openLetter(r) },
             fresh ? h('span', { class: 'badge' }, 'mới') : null,
-            h('div', { class: 'body' }, h('span', { class: 'seal' }, lock ? '🔒' : '♥'),
+            h('div', { class: 'body' }, h('span', { class: 'seal' }, lock ? '◆' : '♥\uFE0E'),
               h('h4', null, r.title || (lock ? 'Một lá thư bất ngờ' : 'Không đề')),
               h('div', { class: 'sub' }, lock ? `Mở được từ ${fmtDate(dayFromIso(r.unlock_at))}` : `${nm(r.from_who)} → ${nm(r.to_who)} · ${fmtShort(r.created_at.slice(0, 10))}`)));
         }))
@@ -483,7 +483,7 @@ function renderLetters() {
   );
 }
 async function openLetter(r) {
-  if (isLocked(r)) return toast(`Lá thư này sẽ mở vào ${fmtDate(dayFromIso(r.unlock_at))} 💌`);
+  if (isLocked(r)) return toast(`Lá thư này sẽ mở vào ${fmtDate(dayFromIso(r.unlock_at))}`);
   const own = r.from_who === S.me;
   const anim = h('div', { class: 'env-anim' }, h('div', { class: 'back' }), h('div', { class: 'card' }), h('div', { class: 'flap' }), h('div', { class: 'front' }));
   const wrap = h('div', { class: 'letter-modal' }, anim);
@@ -542,11 +542,11 @@ function renderPlaylist() {
           const card = h('article', { class: 'song glass reveal' });
           const slot = h('div');
           let open = false;
-          const btn = em ? h('button', { class: 'btn ghost sm', onclick: () => { open = !open; card.classList.toggle('play', open); btn.textContent = open ? '⏸ Đóng trình phát' : '▶ Nghe tại đây'; slot.replaceChildren(open ? h('iframe', { src: em.src, class: em.yt ? 'yt' : '', allow: 'autoplay; encrypted-media; picture-in-picture', allowfullscreen: true, loading: 'lazy', title: s.title }) : ''); } }, '▶ Nghe tại đây') : null;
+          const btn = em ? h('button', { class: 'btn ghost sm', onclick: () => { open = !open; card.classList.toggle('play', open); btn.textContent = open ? 'Đóng trình phát' : '▶\uFE0E Nghe tại đây'; slot.replaceChildren(open ? h('iframe', { src: em.src, class: em.yt ? 'yt' : '', allow: 'autoplay; encrypted-media; picture-in-picture', allowfullscreen: true, loading: 'lazy', title: s.title }) : ''); } }, '▶\uFE0E Nghe tại đây') : null;
           card.append(h('div', { class: 'disc' }), h('div', null,
             h('h4', null, s.title), s.artist ? h('div', { class: 'ar' }, s.artist) : null,
             s.reason ? h('p', { class: 'why' }, `“${s.reason}”`) : null,
-            s.memory ? h('p', { class: 'mem' }, `💭 ${s.memory}`) : null,
+            s.memory ? h('p', { class: 'mem' }, `◌ ${s.memory}`) : null,
             h('div', { class: 'acts' }, btn, s.url ? h('a', { class: 'btn ghost sm', href: s.url, target: '_blank', rel: 'noopener noreferrer' }, '↗ Mở link') : null, rowActs(() => openSongForm(s), async () => (await confirmBox('Xoá bài hát này?')) && (await crud.del('songs', s.id), refresh(renderPlaylist)))),
             slot));
           return card;
@@ -614,15 +614,15 @@ function upcoming() {
   S.special_days.forEach((r) => {
     const n = nextOccurrence(r.date, r.yearly);
     const days = Math.round((n - t0) / 864e5);
-    if (days >= 0) out.push({ title: r.title, date: n, days, icon: KIND_ICON[r.kind] || '🎀', row: r, kind: r.kind, note: r.note });
+    if (days >= 0) out.push({ title: r.title, date: n, days, icon: KIND_ICON[r.kind] || '✦', row: r, kind: r.kind, note: r.note });
   });
   const sd = startDate();
   if (sd) {
     const n = nextOccurrence(S.settings.start_date, true);
-    if (n.getFullYear() > sd.getFullYear()) out.push({ title: `Kỷ niệm ${n.getFullYear() - sd.getFullYear()} năm yêu nhau`, date: n, days: Math.round((n - t0) / 864e5), icon: '💞', auto: true, kind: 'anniversary' });
+    if (n.getFullYear() > sd.getFullYear()) out.push({ title: `Kỷ niệm ${n.getFullYear() - sd.getFullYear()} năm yêu nhau`, date: n, days: Math.round((n - t0) / 864e5), icon: '♡', auto: true, kind: 'anniversary' });
     const done = Math.floor((t0 - sd) / 864e5);
     const ms = [100, 200, 300, 365, 400, 500, 600, 700, 800, 900, 1000, 1111, 1200, 1500, 2000, 2500, 3000, 3650, 5000].find((x) => x > done);
-    if (ms) { const n2 = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate() + ms); out.push({ title: `Ngày thứ ${ms.toLocaleString('vi-VN')} bên nhau`, date: n2, days: ms - done, icon: '🎀', auto: true, kind: 'other' }); }
+    if (ms) { const n2 = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate() + ms); out.push({ title: `Ngày thứ ${ms.toLocaleString('vi-VN')} bên nhau`, date: n2, days: ms - done, icon: '✦', auto: true, kind: 'other' }); }
   }
   return out.sort((a, b) => a.date - b.date);
 }
@@ -647,16 +647,16 @@ function renderDays() {
   const b = $('#days-body');
   const nx = up[0];
   const rows = [...up];
-  S.special_days.forEach((r) => { if (!rows.some((x) => x.row === r)) rows.push({ title: r.title, date: parseYmd(r.date), days: -1, icon: KIND_ICON[r.kind] || '🎀', row: r, kind: r.kind, note: r.note }); });
+  S.special_days.forEach((r) => { if (!rows.some((x) => x.row === r)) rows.push({ title: r.title, date: parseYmd(r.date), days: -1, icon: KIND_ICON[r.kind] || '✦', row: r, kind: r.kind, note: r.note }); });
   if (!rows.length) return b.replaceChildren(empty('Thêm sinh nhật, ngày kỷ niệm hay Valentine để website nhắc bạn nhé.'));
   b.replaceChildren(
     nx ? h('div', { class: 'next glass reveal' }, h('div', { class: 'lab' }, 'Sắp tới'), h('h3', null, `${nx.icon} ${nx.title}`), h('div', { class: 'muted', style: { marginBottom: '14px' } }, fmtDate(ymd(nx.date))),
-      nx.days === 0 ? h('div', { class: 'gift-open', style: { fontSize: '3rem' } }, '🎉') : h('div', { class: 'cd', id: 'nextCd', 'data-t': nx.date.getTime() }, [['', 'ngày'], ['', 'giờ'], ['', 'phút'], ['', 'giây']].map(([, l]) => h('div', null, h('b', null, '0'), h('span', null, l))))) : null,
+      nx.days === 0 ? h('div', { class: 'gift-open', style: { fontSize: '3rem' } }, '✦') : h('div', { class: 'cd', id: 'nextCd', 'data-t': nx.date.getTime() }, [['', 'ngày'], ['', 'giờ'], ['', 'phút'], ['', 'giây']].map(([, l]) => h('div', null, h('b', null, '0'), h('span', null, l))))) : null,
     h('div', { class: 'days' }, rows.map((e) => h('article', { class: 'day glass reveal' },
       h('div', { class: 'ic' }, e.icon),
       h('h4', null, e.title, e.row?.yearly ? h('span', { class: 'tag' }, 'hằng năm') : null),
       h('div', { class: 'dt' }, e.days < 0 ? fmtDate(e.row.date) + ' · đã qua' : fmtDate(ymd(e.date))),
-      e.days >= 0 ? h('div', { class: 'left' }, e.days === 0 ? 'Hôm nay rồi! 🎉' : e.days === 1 ? 'Ngày mai rồi! ✨' : `Còn ${e.days} ngày`) : null,
+      e.days >= 0 ? h('div', { class: 'left' }, e.days === 0 ? 'Hôm nay rồi! ✦' : e.days === 1 ? 'Ngày mai rồi! ✧' : `Còn ${e.days} ngày`) : null,
       e.note ? h('p', { class: 'nt' }, e.note) : null,
       e.row ? rowActs(() => openDayForm(e.row), async () => (await confirmBox('Xoá ngày này?')) && (await crud.del('special_days', e.row.id), refresh(() => (renderDays(), renderHero())))) : h('div', { class: 'dt' }, '✦ tự động tính')))),
   );
@@ -675,14 +675,14 @@ function openBucketForm(row) {
 }
 function renderBucket() {
   $('#bucket-tools').replaceChildren(addBtn('＋ Thêm điều ước', () => openBucketForm()),
-    S.bucket.length ? null : h('button', { class: 'btn ghost', onclick: async () => { for (const t of BUCKET_SEEDS) await crud.save('bucket', null, { title: t }); refresh(renderBucket); } }, '✨ Dùng gợi ý có sẵn'));
+    S.bucket.length ? null : h('button', { class: 'btn ghost', onclick: async () => { for (const t of BUCKET_SEEDS) await crud.save('bucket', null, { title: t }); refresh(renderBucket); } }, '✦ Dùng gợi ý có sẵn'));
   const done = S.bucket.filter((x) => x.done).length;
   const b = $('#bucket-body');
   if (!S.bucket.length) return b.replaceChildren(empty('Hãy viết ra những điều hai bạn muốn làm cùng nhau.'));
   b.replaceChildren(
     h('div', { class: 'prog reveal' }, h('span', { class: 'muted' }, `${done}/${S.bucket.length} điều đã cùng nhau thực hiện`), h('div', { class: 'bar' }, h('i', { style: { width: `${(done / S.bucket.length) * 100}%` } }))),
     h('div', { class: 'bucket' }, S.bucket.map((r) => h('article', { class: 'bk glass reveal' + (r.done ? ' done' : '') },
-      h('button', { class: 'ck', 'aria-label': r.done ? 'Bỏ đánh dấu' : 'Đánh dấu đã làm', 'aria-pressed': r.done ? 'true' : 'false', onclick: async () => { await crud.save('bucket', r.id, { done: !r.done, done_at: r.done ? null : todayStr() }); await refresh(renderBucket); if (!r.done) toast('Tuyệt quá, thêm một điều ước thành hiện thực 🌸'); } }, '✓'),
+      h('button', { class: 'ck', 'aria-label': r.done ? 'Bỏ đánh dấu' : 'Đánh dấu đã làm', 'aria-pressed': r.done ? 'true' : 'false', onclick: async () => { await crud.save('bucket', r.id, { done: !r.done, done_at: r.done ? null : todayStr() }); await refresh(renderBucket); if (!r.done) toast('Tuyệt quá, thêm một điều ước thành hiện thực ✿'); } }, '✓'),
       h('div', null, h('h4', null, r.title), r.note ? h('p', { class: 'nt' }, r.note) : null, r.done && r.done_at ? h('div', { class: 'dn' }, `Hoàn thành ngày ${fmtDate(r.done_at)}`) : null,
         rowActs(() => openBucketForm(r), async () => (await confirmBox('Xoá điều ước này?')) && (await crud.del('bucket', r.id), refresh(renderBucket))))))),
   );
@@ -718,10 +718,10 @@ function renderLittle() {
 
 /* ═════ 09 · SURPRISE ═════ */
 const SP_KINDS = {
-  gift: ['🎁', 'Hộp quà bí mật', 'Một lời nhắn / bức ảnh chỉ hiện khi mở'],
-  timed: ['⏳', 'Lời nhắn theo ngày', 'Tự mở khóa vào một ngày'],
-  future: ['📮', 'Thư gửi tương lai', 'Niêm phong đến ngày hẹn'],
-  hidden_photo: ['🫣', 'Ảnh ẩn', 'Ảnh bị làm mờ, chạm để xem'],
+  gift: ['❖', 'Hộp quà bí mật', 'Một lời nhắn / bức ảnh chỉ hiện khi mở'],
+  timed: ['◷', 'Lời nhắn theo ngày', 'Tự mở khóa vào một ngày'],
+  future: ['✺', 'Thư gửi tương lai', 'Niêm phong đến ngày hẹn'],
+  hidden_photo: ['◐', 'Ảnh ẩn', 'Ảnh bị làm mờ, chạm để xem'],
 };
 function openSurpriseKind() {
   const m = modal('Tạo một bất ngờ', h('div', { class: 'kinds' }, Object.entries(SP_KINDS).map(([k, [i, n, d]]) => h('button', { class: 'kind', onclick: () => (m.close(), setTimeout(() => openSurpriseForm(k), 320)) }, h('b', null, i), h('strong', null, n), h('span', null, d)))));
@@ -735,7 +735,7 @@ function openSurpriseForm(kind, row) {
     ...(needDate ? [{ name: 'unlock_at', label: 'Mở khóa vào ngày', type: 'date', iso: true, required: true, min: todayStr(), hint: kind === 'future' ? 'Thư sẽ được niêm phong với cả bạn, đến ngày đó mới đọc được.' : 'Người ấy chỉ đọc được từ ngày này.' }] : []),
   ];
   formModal({
-    title: row ? 'Sửa bất ngờ' : SP_KINDS[kind][1], values: row || {}, fields, submit: 'Cất đi 🎁',
+    title: row ? 'Sửa bất ngờ' : SP_KINDS[kind][1], values: row || {}, fields, submit: 'Cất đi',
     onSubmit: async (v) => {
       if (kind === 'hidden_photo' && !v.photo_key) throw new Error('Hãy chọn một tấm ảnh nhé');
       await crud.save('surprises', row?.id, { ...v, kind }); await refresh(renderSurprise);
@@ -743,22 +743,22 @@ function openSurpriseForm(kind, row) {
   });
 }
 function renderSurprise() {
-  $('#surprise-tools').replaceChildren(addBtn('🎁 Tạo bất ngờ', openSurpriseKind));
+  $('#surprise-tools').replaceChildren(addBtn('＋ Tạo bất ngờ', openSurpriseKind));
   const b = $('#surprise-body');
   const sd = startDate();
   const next = sd ? nextOccurrence(S.settings.start_date, true) : null;
   const isDay = next && next.getTime() === startOfToday().getTime() && next.getFullYear() > sd.getFullYear();
   const cards = [];
   cards.push(h('article', { class: 'sp special glass reveal', onclick: () => (isDay ? showFest() : openFestInfo(next)) },
-    h('div', { class: 'big' }, '🎆'), h('h4', null, S.settings.anniv_title || 'Trang kỷ niệm'),
-    h('div', { class: 'st' }, !sd ? 'Hãy đặt ngày bắt đầu yêu nhau trong Cài đặt' : isDay ? 'Hôm nay rồi — chạm để mở! ✨' : `Mở vào ${fmtDate(ymd(next))} · còn ${Math.round((next - startOfToday()) / 864e5)} ngày`)));
+    h('div', { class: 'big' }, '✺'), h('h4', null, S.settings.anniv_title || 'Trang kỷ niệm'),
+    h('div', { class: 'st' }, !sd ? 'Hãy đặt ngày bắt đầu yêu nhau trong Cài đặt' : isDay ? 'Hôm nay rồi — chạm để mở! ✦' : `Mở vào ${fmtDate(ymd(next))} · còn ${Math.round((next - startOfToday()) / 864e5)} ngày`)));
   S.surprises.forEach((r) => {
     const own = r.from_who === S.me;
-    const [icon, name] = SP_KINDS[r.kind] || ['🎁', ''];
+    const [icon, name] = SP_KINDS[r.kind] || ['❖', ''];
     const lock = isLocked(r);
-    const stat = lock ? `🔒 Mở ngày ${fmtDate(dayFromIso(r.unlock_at))}` : own ? `Bạn đã gửi${r.opened ? ' · đã được mở 💗' : ''}` : r.opened ? 'Đã mở' : `Từ ${nm(r.from_who)}`;
+    const stat = lock ? `◆ Mở ngày ${fmtDate(dayFromIso(r.unlock_at))}` : own ? `Bạn đã gửi${r.opened ? ' · đã được mở ♡' : ''}` : r.opened ? 'Đã mở' : `Từ ${nm(r.from_who)}`;
     const el = h('article', { class: 'sp glass reveal', onclick: () => openSurprise(r) },
-      r.kind === 'hidden_photo' && r.photo_key ? h('div', { class: 'blur' }, h('img', { src: mu(r.photo_key), alt: '', loading: 'lazy' })) : h('div', { class: 'big' }, lock ? '🔒' : icon),
+      r.kind === 'hidden_photo' && r.photo_key ? h('div', { class: 'blur' }, h('img', { src: mu(r.photo_key), alt: '', loading: 'lazy' })) : h('div', { class: 'big' }, lock ? '◆' : icon),
       h('h4', null, r.title || name), h('div', { class: 'st' }, stat),
       own ? rowActs(() => openSurpriseForm(r.kind, r), async () => (await confirmBox('Xoá bất ngờ này?')) && (await crud.del('surprises', r.id), refresh(renderSurprise))) : null);
     cards.push(el);
@@ -766,10 +766,10 @@ function renderSurprise() {
   b.replaceChildren(h('div', { class: 'sp-grid' }, cards));
 }
 async function openSurprise(r) {
-  if (isLocked(r)) return toast(`Chưa đến lúc đâu nhé, mở vào ${fmtDate(dayFromIso(r.unlock_at))} 🤫`);
+  if (isLocked(r)) return toast(`Chưa đến lúc đâu nhé, mở vào ${fmtDate(dayFromIso(r.unlock_at))}`);
   const own = r.from_who === S.me;
   const box = h('div', { class: 'reveal-box' },
-    h('div', { class: 'gift-open' }, SP_KINDS[r.kind]?.[0] || '🎁'),
+    h('div', { class: 'gift-open' }, SP_KINDS[r.kind]?.[0] || '❖'),
     r.title ? h('h3', null, r.title) : null,
     r.photo_key ? h('img', { src: mu(r.photo_key), alt: r.title || '' }) : null,
     r.content ? h('div', { class: 'msg' }, r.content) : null,
@@ -787,7 +787,7 @@ function festMarkup() {
 function showFest() {
   const { years, title, msg } = festMarkup();
   const f = h('div', { class: 'fest' });
-  for (let i = 0; i < 26; i++) f.append(h('span', { class: 'petal', style: { left: rnd(0, 100) + '%', animationDuration: rnd(7, 14) + 's', animationDelay: -rnd(0, 12) + 's', fontSize: rnd(1, 2) + 'rem', '--dx': rnd(-80, 120) + 'px' } }, ['🌸', '💗', '✨', '🤍'][i % 4]));
+  for (let i = 0; i < 26; i++) f.append(h('span', { class: 'petal', style: { color: ['#E58BA2', '#D97996', '#EBC0CF', '#A4C3D4'][i % 4], left: rnd(0, 100) + '%', animationDuration: rnd(7, 14) + 's', animationDelay: -rnd(0, 12) + 's', fontSize: rnd(1, 2) + 'rem', '--dx': rnd(-80, 120) + 'px' } }, ['✿', '♡', '✦', '❀'][i % 4]));
   const close = () => { f.classList.remove('in'); setTimeout(() => f.remove(), 800); document.body.classList.remove('lock'); };
   f.append(h('div', { class: 'in-box' },
     h('div', { class: 'gate-mark' }, '♡'), h('h2', null, title),

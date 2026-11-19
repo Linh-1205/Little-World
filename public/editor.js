@@ -3,7 +3,7 @@
 
 const ED_RATIOS = { '1:1': [1080, 1080], '4:5': [1080, 1350], '3:4': [1080, 1440], '4:3': [1080, 810], '9:16': [1012, 1800] };
 const ED_FRAMES = [['none', 'Không khung'], ['polaroid', 'Polaroid'], ['cream', 'Viền kem'], ['rounded', 'Bo tròn'], ['arch', 'Vòm cửa'], ['heart', 'Trái tim'], ['double', 'Viền đôi'], ['film', 'Phim']];
-const ED_PAPER = ['#fffaf4', '#fbf0e4', '#f9dde3', '#efdccd', '#ffffff', '#6a5047'];
+const ED_PAPER = ['#FFFCF7', '#FFF5F7', '#FCE4EB', '#E9E0D1', '#D7E5E8', '#FFFFFF', '#59434D', '#303B49'];
 const ED_FILTERS = {
   none: ['Gốc', []],
   soft: ['Dịu nhẹ', [['#ffe6ee', 'soft-light', 0.55], ['#ffffff', 'screen', 0.08]]],
@@ -13,15 +13,14 @@ const ED_FILTERS = {
   film: ['Phim cũ', [['#d9b38c', 'multiply', 0.3], ['#8a5a44', 'soft-light', 0.3]]],
   mono: ['Đen trắng', [['#808080', 'saturation', 1], ['#fff0e6', 'soft-light', 0.2]]],
 };
-const ED_EMOJI = ['💗', '💕', '🌸', '🎀', '✨', '🦋', '🌷', '🤍', '☁️', '🍓', '🧸', '💌', '🌙', '⭐', '🕊️', '🫶', '🍒', '🌹', '🎈', '💫', '🐰', '🌼', '🍰', '☕'];
-const ED_TAPES = ['rgba(246,205,213,.8)', 'rgba(233,216,200,.85)', 'rgba(255,238,214,.9)', 'rgba(220,235,225,.85)'];
+const ED_GLYPHS = ['♡', '♥', '✦', '✧', '✶', '✿', '❀', '❁', '❋', '✺', '☾', '♪', '♫', '★', '☆', '❖', '◇', '◆', '✤', '❃', '❂', '✱', '☼', '⚘'];
+const ED_TAPES = ['#EBC0CF', '#B2D1DF', '#E9E0D1', '#D7E5E8', '#F3D3DE', '#A4C3D4'];
 const ED_FONTS = {
   hand: ['Chữ viết tay', '"Dancing Script",cursive', '600', ''],
   serif: ['Cổ điển', '"Cormorant Garamond",serif', '600', 'italic '],
   play: ['Thanh lịch', '"Playfair Display",serif', '500', 'italic '],
   sans: ['Hiện đại', '"Be Vietnam Pro",sans-serif', '500', ''],
 };
-const ED_COLORS = ['#5a4137', '#d4788f', '#eaa3b3', '#ffffff', '#8b6b5d', '#f6cdd5', '#c98a5b', '#222222'];
 
 function edRoundRect(c, x, y, w, h, r) {
   r = Math.min(r, w / 2, h / 2);
@@ -32,6 +31,141 @@ function edRoundRect(c, x, y, w, h, r) {
   c.arcTo(x, y + h, x, y, r);
   c.arcTo(x, y, x + w, y, r);
   c.closePath();
+}
+
+
+/* ───── Bảng chọn màu dạng vòng RGB (vòng màu + ô độ đậm/sáng + mã HEX) ───── */
+function cpHsv2rgb(h, s, v) {
+  const f = (n) => {
+    const k = (n + h / 60) % 6;
+    return v - v * s * Math.max(Math.min(k, 4 - k, 1), 0);
+  };
+  return [f(5), f(3), f(1)].map((x) => Math.round(x * 255));
+}
+function cpRgb2hsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), d = mx - Math.min(r, g, b);
+  let h = 0;
+  if (d) {
+    if (mx === r) h = ((g - b) / d) % 6;
+    else if (mx === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  return [h, mx ? d / mx : 0, mx];
+}
+const cpHex = (r, g, b) => '#' + [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+function cpParse(x) {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(x).trim());
+  if (!m) return null;
+  let t = m[1];
+  if (t.length === 3) t = [...t].map((c) => c + c).join('');
+  const n = parseInt(t, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function colorPicker({ value = '#E58BA2', onChange = () => {}, swatches = PALETTE } = {}) {
+  const SZ = 220, C = SZ / 2, R = 104, r = 78, side = 108;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const x0 = C - side / 2, y0 = C - side / 2;
+  let [H, S, V] = cpRgb2hsv(...(cpParse(value) || [229, 139, 162]));
+  const cv = h('canvas', { class: 'cp-wheel', width: SZ * dpr, height: SZ * dpr, style: { width: SZ + 'px', height: SZ + 'px' } });
+  const g = cv.getContext('2d');
+
+  const ring = document.createElement('canvas'); // vòng màu, vẽ một lần
+  ring.width = ring.height = SZ * dpr;
+  {
+    const x = ring.getContext('2d');
+    x.scale(dpr, dpr);
+    x.lineWidth = R - r + 1;
+    for (let a = 0; a < 360; a++) {
+      x.beginPath();
+      x.strokeStyle = `hsl(${a},100%,50%)`;
+      x.arc(C, C, (R + r) / 2, ((a - 0.8) * Math.PI) / 180, ((a + 1.2) * Math.PI) / 180);
+      x.stroke();
+    }
+  }
+  const sq = document.createElement('canvas'); // ô độ đậm (ngang) và độ sáng (dọc)
+  sq.width = sq.height = side;
+  const sqx = sq.getContext('2d');
+  const paintSq = () => {
+    const im = sqx.createImageData(side, side);
+    for (let y = 0; y < side; y++)
+      for (let x = 0; x < side; x++) {
+        const [rr, gg, bb] = cpHsv2rgb(H, x / (side - 1), 1 - y / (side - 1));
+        const i = (y * side + x) * 4;
+        im.data[i] = rr; im.data[i + 1] = gg; im.data[i + 2] = bb; im.data[i + 3] = 255;
+      }
+    sqx.putImageData(im, 0, 0);
+  };
+  const hexNow = () => cpHex(...cpHsv2rgb(H, S, V));
+  const knob = (x, y, fill) => {
+    g.beginPath(); g.arc(x, y, 9, 0, Math.PI * 2); g.fillStyle = fill; g.fill();
+    g.lineWidth = 3; g.strokeStyle = '#FFFFFF'; g.stroke();
+    g.beginPath(); g.arc(x, y, 10.8, 0, Math.PI * 2); g.lineWidth = 1; g.strokeStyle = '#59434D'; g.stroke();
+  };
+  const preview = h('span', { class: 'cp-prev' });
+  const hex = h('input', { type: 'text', class: 'cp-hex', maxlength: 7, spellcheck: 'false', 'aria-label': 'Mã màu HEX' });
+  const draw = () => {
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, SZ, SZ);
+    g.drawImage(ring, 0, 0, SZ, SZ);
+    g.drawImage(sq, x0, y0);
+    const mid = (R + r) / 2;
+    knob(C + mid * Math.cos((H * Math.PI) / 180), C + mid * Math.sin((H * Math.PI) / 180), `hsl(${H},100%,50%)`);
+    knob(x0 + S * (side - 1), y0 + (1 - V) * (side - 1), hexNow());
+    const c = hexNow();
+    preview.style.background = c;
+    if (document.activeElement !== hex) hex.value = c;
+  };
+  const emit = () => { draw(); onChange(hexNow()); };
+
+  let mode = null;
+  const pos = (e) => {
+    const b = cv.getBoundingClientRect();
+    return [((e.clientX - b.left) * SZ) / b.width, ((e.clientY - b.top) * SZ) / b.height];
+  };
+  const apply = (e) => {
+    const [px, py] = pos(e);
+    if (mode === 'hue') {
+      H = ((Math.atan2(py - C, px - C) * 180) / Math.PI + 360) % 360;
+      paintSq();
+    } else {
+      S = Math.min(1, Math.max(0, (px - x0) / (side - 1)));
+      V = 1 - Math.min(1, Math.max(0, (py - y0) / (side - 1)));
+    }
+    emit();
+  };
+  cv.addEventListener('pointerdown', (e) => {
+    const [px, py] = pos(e);
+    const d = Math.hypot(px - C, py - C);
+    if (d >= r - 4 && d <= R + 6) mode = 'hue';
+    else if (px >= x0 - 6 && px <= x0 + side + 6 && py >= y0 - 6 && py <= y0 + side + 6) mode = 'sv';
+    else return;
+    cv.setPointerCapture(e.pointerId);
+    apply(e);
+  });
+  cv.addEventListener('pointermove', (e) => mode && apply(e));
+  const end = () => (mode = null);
+  cv.addEventListener('pointerup', end);
+  cv.addEventListener('pointercancel', end);
+
+  const setHex = (c, fire) => {
+    const rgb = cpParse(c);
+    if (!rgb) return;
+    [H, S, V] = cpRgb2hsv(...rgb);
+    paintSq();
+    fire ? emit() : draw();
+  };
+  hex.addEventListener('input', () => { const rgb = cpParse(hex.value); if (rgb) setHex(cpCanon(hex.value), true); });
+  hex.addEventListener('blur', draw);
+  const cpCanon = (x) => cpHex(...cpParse(x));
+  const pal = h('div', { class: 'cp-pal' }, swatches.map((c) => h('button', { type: 'button', style: { background: c }, 'aria-label': c, title: c, onclick: () => setHex(c, true) })));
+
+  paintSq();
+  draw();
+  return { el: h('div', { class: 'cp' }, cv, h('div', { class: 'cp-row' }, preview, hex), pal), set: (c) => setHex(c, false) };
 }
 
 async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
@@ -51,7 +185,7 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
   const st = {
     ratio: img ? (img.naturalWidth > img.naturalHeight * 1.15 ? '4:3' : img.naturalHeight > img.naturalWidth * 1.15 ? '4:5' : '1:1') : '4:5',
     frame: img ? 'polaroid' : 'none',
-    paper: '#fffaf4',
+    paper: '#FFFCF7',
     filter: 'none',
     fk: 1,
     photo: { z: 1, ox: 0, oy: 0 },
@@ -59,8 +193,9 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
     strokes: [],
     sel: null,
     tool: 'move',
-    brush: { mode: 'pen', color: '#e7a1b0', size: 14 },
-    text: { font: 'hand', color: '#5a4137' },
+    brush: { mode: 'pen', color: '#E58BA2', size: 14 },
+    text: { font: 'hand', color: '#59434D' },
+    tint: '#E58BA2',
   };
   let cur = null; // nét đang vẽ
   let drag = null;
@@ -156,25 +291,25 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
     c.save();
     c.lineJoin = 'round';
     if (st.frame === 'polaroid') {
-      c.strokeStyle = 'rgba(139,107,93,.14)';
+      c.strokeStyle = '#EBC0CF';
       c.lineWidth = 2;
       c.strokeRect(x, y, w, hh);
-      c.strokeStyle = 'rgba(139,107,93,.1)';
+      c.strokeStyle = '#F3D3DE';
       c.lineWidth = 4;
       c.strokeRect(1, 1, W - 2, H - 2);
     } else if (st.frame === 'cream') {
-      c.strokeStyle = '#d9b9a6';
+      c.strokeStyle = '#EBC0CF';
       c.lineWidth = 3;
       c.strokeRect(x - 14, y - 14, w + 28, hh + 28);
     } else if (st.frame === 'double') {
-      c.strokeStyle = '#d4788f';
+      c.strokeStyle = '#C85F7D';
       c.lineWidth = 3;
       c.strokeRect(x - 16, y - 16, w + 32, hh + 32);
       c.lineWidth = 1.5;
       c.strokeRect(x - 30, y - 30, w + 60, hh + 60);
     } else if (st.frame === 'film') {
       const s = x * 0.34, step = s * 1.9;
-      c.fillStyle = '#fbf3ea';
+      c.fillStyle = '#FFFCF7';
       for (let yy = step * 0.5; yy < H - s; yy += step) {
         edRoundRect(c, (x - s) / 2, yy, s, s * 1.2, 5);
         c.fill();
@@ -183,10 +318,10 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
       }
     } else if (['round', 'arch', 'heart'].includes(g.shape)) {
       shapePath(c, g);
-      c.strokeStyle = 'rgba(255,255,255,.95)';
+      c.strokeStyle = '#FFFFFF';
       c.lineWidth = 12;
       c.stroke();
-      c.strokeStyle = 'rgba(234,163,179,.55)';
+      c.strokeStyle = '#E58BA2';
       c.lineWidth = 2;
       c.stroke();
     }
@@ -194,13 +329,13 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
   }
 
   function itemFont(it) {
-    if (it.type === 'emoji') return `${120}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+    if (it.type === 'glyph') return '120px "Be Vietnam Pro","Segoe UI Symbol","Noto Sans Symbols 2","Noto Sans Symbols","Apple Symbols","DejaVu Sans",sans-serif';
     const f = ED_FONTS[it.font];
     return `${f[3]}${f[2]} 90px ${f[1]}`;
   }
   function itemBox(it) {
     if (it.type === 'tape') return [300 * it.k, 70 * it.k];
-    if (it.type === 'emoji') return [150 * it.k, 150 * it.k];
+    if (it.type === 'glyph') return [150 * it.k, 150 * it.k];
     meas.font = itemFont(it);
     return [(meas.measureText(it.t).width + 30) * it.k, 120 * it.k];
   }
@@ -211,24 +346,19 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
     c.scale(it.k, it.k);
     if (it.type === 'tape') {
       c.fillStyle = it.color;
-      c.shadowColor = 'rgba(90,60,50,.2)';
-      c.shadowBlur = 6;
       c.fillRect(-150, -35, 300, 70);
-      c.shadowBlur = 0;
-      c.fillStyle = 'rgba(255,255,255,.28)';
-      for (let i = -140; i < 150; i += 22) c.fillRect(i, -35, 8, 70);
     } else {
       c.font = itemFont(it);
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       if (it.type === 'text') {
         c.lineJoin = 'round';
-        c.strokeStyle = it.color === '#ffffff' ? 'rgba(90,65,55,.35)' : 'rgba(255,255,255,.55)';
+        c.strokeStyle = it.color.toLowerCase() === '#ffffff' ? '#59434D' : '#FFFFFF';
         c.lineWidth = 8;
         c.strokeText(it.t, 0, 0);
-        c.fillStyle = it.color;
       }
-      c.fillText(it.type === 'emoji' ? it.t : it.t, 0, 0);
+      c.fillStyle = it.color;
+      c.fillText(it.t, 0, 0);
     }
     c.restore();
     if (selected) {
@@ -238,7 +368,7 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
       c.rotate(it.r);
       c.setLineDash([12, 8]);
       c.lineWidth = 3;
-      c.strokeStyle = '#d4788f';
+      c.strokeStyle = '#C85F7D';
       c.strokeRect(-bw / 2, -bh / 2, bw, bh);
       c.restore();
     }
@@ -278,13 +408,13 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = st.frame === 'film' ? '#6a5047' : st.paper;
+    ctx.fillStyle = st.frame === 'film' ? '#303B49' : st.paper;
     ctx.fillRect(0, 0, W, H);
     // vùng ảnh
     ctx.save();
     shapePath(ctx, g);
     ctx.clip();
-    ctx.fillStyle = st.frame === 'film' ? '#4d3a33' : st.paper === '#ffffff' || st.frame === 'none' ? st.paper : '#f3e4da';
+    ctx.fillStyle = st.frame === 'film' ? '#59434D' : st.paper.toLowerCase() === '#ffffff' || st.frame === 'none' ? st.paper : '#F3DCE4';
     ctx.fillRect(...g.rect);
     if (img) {
       const [x, y, w, hh] = photoBox(g);
@@ -370,7 +500,7 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
   const rotLabel = h('span', null, 'Xoay');
   const rot = h('input', { type: 'range', min: -180, max: 180, step: 1, value: 0 });
   selBox.append(szLabel, sz, rotLabel, rot);
-  const delBtn = h('button', { class: 'btn ghost sm danger', type: 'button', onclick: removeSel }, '🗑 Xoá mục chọn');
+  const delBtn = h('button', { class: 'btn ghost sm danger', type: 'button', onclick: removeSel }, 'Xoá mục chọn');
   const undoBtn = h('button', { class: 'btn ghost sm', type: 'button', onclick: undo }, '↶ Hoàn tác nét vẽ');
 
   function select(it) {
@@ -428,13 +558,6 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
     paint();
     return row;
   };
-  const swatches = (colors, get, set) => {
-    const row = h('div', { class: 'sw' });
-    const paint = () => $$('button', row).forEach((b, i) => b.classList.toggle('on', colors[i] === get()));
-    colors.forEach((c) => row.append(h('button', { type: 'button', style: { background: c }, 'aria-label': c, onclick: () => (set(c), paint()) })));
-    paint();
-    return row;
-  };
 
   // tab: Khung
   const tabFrame = h('div', { class: 'tp' },
@@ -443,7 +566,7 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
     h('h5', null, 'KHUNG'),
     chipRow(ED_FRAMES, () => st.frame, (v) => ((st.frame = v), render())),
     h('h5', null, 'MÀU GIẤY'),
-    swatches(ED_PAPER, () => st.paper, (v) => ((st.paper = v), render())),
+    colorPicker({ value: st.paper, swatches: ED_PAPER, onChange: (v) => ((st.paper = v), render()) }).el,
     h('p', { class: 'hint muted' }, img ? 'Kéo ảnh trên khung để chỉnh vị trí, dùng thanh phóng ảnh ở dưới.' : 'Chọn màu giấy rồi sang tab Vẽ để tự vẽ nhé.'),
   );
   // tab: Lọc
@@ -456,11 +579,14 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
     img ? null : h('p', { class: 'hint muted' }, 'Bộ lọc chỉ áp dụng khi có ảnh.'),
   );
   // tab: Nhãn dán
+  const tintPicker = colorPicker({ value: st.tint, onChange: (v) => { st.tint = v; if (st.sel?.type === 'glyph') ((st.sel.color = v), render()); } });
   const tabStick = h('div', { class: 'tp' },
-    h('h5', null, 'NHÃN DÁN'),
-    h('div', { class: 'emo' }, ED_EMOJI.map((e) => h('button', { type: 'button', onclick: () => addItem({ type: 'emoji', t: e }) }, e))),
-    h('h5', null, 'BĂNG DÁN WASHI'),
-    h('div', { class: 'sw' }, ED_TAPES.map((c) => h('button', { type: 'button', style: { background: c, borderRadius: '8px', width: '46px' }, 'aria-label': 'Băng dán', onclick: () => addItem({ type: 'tape', color: c }) }))),
+    h('h5', null, 'KÝ TỰ TRANG TRÍ'),
+    h('div', { class: 'emo' }, ED_GLYPHS.map((e) => h('button', { type: 'button', onclick: () => addItem({ type: 'glyph', t: e, color: st.tint }) }, e))),
+    h('h5', null, 'MÀU KÝ TỰ'),
+    tintPicker.el,
+    h('h5', null, 'BĂNG DÁN'),
+    h('div', { class: 'sw' }, ED_TAPES.map((c) => h('button', { type: 'button', style: { background: c, borderRadius: '6px', width: '46px' }, 'aria-label': 'Băng dán', onclick: () => addItem({ type: 'tape', color: c }) }))),
   );
   // tab: Chữ
   const textInput = h('input', { type: 'text', placeholder: 'Viết gì đó thật dịu dàng…', maxlength: 80 });
@@ -472,18 +598,17 @@ async function openEditor({ src = null, onDone, title = 'Trang trí & vẽ' }) {
     h('h5', null, 'KIỂU CHỮ'),
     chipRow(Object.entries(ED_FONTS).map(([k, v]) => [k, v[0]]), () => st.text.font, (v) => { st.text.font = v; if (st.sel?.type === 'text') ((st.sel.font = v), render()); }),
     h('h5', null, 'MÀU CHỮ'),
-    swatches(ED_COLORS, () => st.text.color, (v) => { st.text.color = v; if (st.sel?.type === 'text') ((st.sel.color = v), render()); }),
+    colorPicker({ value: st.text.color, onChange: (v) => { st.text.color = v; if (st.sel?.type === 'text') ((st.sel.color = v), render()); } }).el,
     h('button', { class: 'btn ghost sm', type: 'button', onclick: () => textInput.value.trim() ? (addItem({ type: 'text', t: textInput.value.trim(), font: st.text.font, color: st.text.color }), (textInput.value = '')) : toast('Nhập chữ trước nhé') }, '＋ Thêm chữ'),
   );
   // tab: Vẽ
   const brushSize = h('input', { type: 'range', min: 3, max: 60, value: st.brush.size });
   brushSize.addEventListener('input', () => (st.brush.size = +brushSize.value));
-  const BR = ['#e7a1b0', '#d4788f', '#ffffff', '#5a4137', '#c98a5b', '#f6cdd5', '#a8c5b0', '#9db8d6'];
   const tabDraw = h('div', { class: 'tp' },
     h('h5', null, 'ĐẦU BÚT'),
-    chipRow([['pen', '🖊 Bút'], ['marker', '🖍 Bút dạ'], ['eraser', '🧽 Tẩy']], () => st.brush.mode, (v) => (st.brush.mode = v)),
+    chipRow([['pen', 'Bút'], ['marker', 'Bút dạ'], ['eraser', 'Tẩy']], () => st.brush.mode, (v) => (st.brush.mode = v)),
     h('h5', null, 'MÀU'),
-    swatches(BR, () => st.brush.color, (v) => (st.brush.color = v)),
+    colorPicker({ value: st.brush.color, onChange: (v) => (st.brush.color = v) }).el,
     h('h5', null, 'NÉT BÚT'), brushSize,
     undoBtn,
   );

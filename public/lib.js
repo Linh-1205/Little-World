@@ -1,6 +1,9 @@
 'use strict';
 /* Tiện ích dùng chung: DOM, API, modal, toast, ngày tháng, xử lý ảnh */
 
+// Bảng màu của website (đồng bộ với style.css)
+const PALETTE = ['#FFF5F7', '#FFF0F4', '#FCE4EB', '#F3DCE4', '#F3D3DE', '#EBC0CF', '#E58BA2', '#D97996', '#C85F7D', '#A64F6B', '#FFFFFF', '#FFFCF7', '#E9E0D1', '#D7E5E8', '#C8D0D2', '#B2D1DF', '#A4C3D4', '#8999B2', '#71899F', '#68798A', '#536B87', '#303B49', '#59434D', '#9D8490'];
+
 // khả năng của máy chủ: không có R2 thì ảnh lưu trong D1 (giới hạn nhỏ, không có video/nhạc)
 const CAPS = { r2: true };
 
@@ -267,10 +270,10 @@ function photoField({ key = null, label = 'ảnh', decorate = true, small = fals
   let local = null; // {blob,url}
   const pv = h('div', { class: 'pv' + (small ? ' sm' : '') });
   const file = h('input', { type: 'file', accept: 'image/*', hidden: true });
-  const draw = h('button', { type: 'button', class: 'btn ghost sm', onclick: edit }, '🎨 Trang trí');
+  const draw = h('button', { type: 'button', class: 'btn ghost sm', onclick: edit }, '✎ Trang trí & vẽ');
   const del = h('button', { type: 'button', class: 'btn ghost sm', onclick: () => ((cur = null), (local = null), refresh()) }, 'Bỏ ảnh');
-  const pick = h('button', { type: 'button', class: 'btn ghost sm', onclick: () => file.click() }, '📷 Chọn ảnh');
-  const make = h('button', { type: 'button', class: 'btn ghost sm', onclick: () => edit(true) }, '✏️ Vẽ mới');
+  const pick = h('button', { type: 'button', class: 'btn ghost sm', onclick: () => file.click() }, '＋ Chọn ảnh');
+  const make = h('button', { type: 'button', class: 'btn ghost sm', onclick: () => edit(true) }, '✎ Vẽ mới');
   const acts = h('div', { class: 'chips' }, pick, decorate ? draw : null, decorate ? make : null, del);
   function refresh() {
     const src = local ? local.url : cur ? mu(cur) : null;
