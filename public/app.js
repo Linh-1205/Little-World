@@ -508,32 +508,95 @@ async function openLetter(r) {
 }
 
 /* ═════ 05 · PLAYLIST ═════ */
-function embedUrl(u) {
+/* ───── nhận diện link YouTube / Spotify để phát ngay trong trang ───── */
+// chuẩn hoá thứ người dùng dán: thiếu https://, link rút gọn, dạng spotify:track:ID …
+function normUrl(raw) {
+  let u = String(raw || '').trim();
+  if (!u) return '';
+  const uri = /^spotify:(track|album|playlist|episode|show|artist):([A-Za-z0-9]{10,30})$/.exec(u);
+  if (uri) return `https://open.spotify.com/${uri[1]}/${uri[2]}`;
+  if (!/^[a-z][a-z0-9+.-]*:/i.test(u)) u = 'https://' + u.replace(/^\/+/, '');
+  return u;
+}
+
+function embedUrl(raw) {
+  const u = normUrl(raw);
   if (!u) return null;
-  try {
-    const x = new URL(u);
-    if (x.hostname.includes('spotify.com')) { const p = x.pathname.replace(/^\/intl-[a-z-]+/, ''); if (/^\/(track|album|playlist|episode)\//.test(p)) return { src: 'https://open.spotify.com/embed' + p, yt: false }; }
+  let x;
+  try { x = new URL(u); } catch { return null; }
+  const host = x.hostname.toLowerCase().replace(/^(www|m|music|play)\./, '');
+
+  if (host === 'open.spotify.com' || host === 'spotify.com') {
+    const m = /^\/(?:intl-[a-z-]+\/)?(?:embed\/)?(track|album|playlist|episode|show|artist)\/([A-Za-z0-9]{10,30})/.exec(x.pathname);
+    if (!m) return null;
+    return { kind: 'sp', src: `https://open.spotify.com/embed/${m[1]}/${m[2]}?utm_source=generator`, tall: m[1] !== 'track' && m[1] !== 'episode', open: `https://open.spotify.com/${m[1]}/${m[2]}`, label: 'Spotify' };
+  }
+
+  if (host === 'youtu.be' || host === 'youtube.com' || host === 'youtube-nocookie.com') {
     let id = null;
-    if (x.hostname === 'youtu.be') id = x.pathname.slice(1);
-    else if (x.hostname.endsWith('youtube.com')) id = x.searchParams.get('v') || (/^\/(embed|shorts)\//.test(x.pathname) ? x.pathname.split('/')[2] : null);
-    if (id && /^[\w-]{6,15}$/.test(id)) return { src: `https://www.youtube-nocookie.com/embed/${id}`, yt: true };
-  } catch {}
+    if (host === 'youtu.be') id = x.pathname.split('/')[1];
+    else if (x.pathname === '/watch') id = x.searchParams.get('v');
+    else { const m = /^\/(?:embed|shorts|live|v)\/([\w-]{6,20})/.exec(x.pathname); if (m) id = m[1]; }
+    const list = x.searchParams.get('list');
+    if (id && !/^[\w-]{6,20}$/.test(id)) id = null;
+    const okList = list && /^[\w-]{10,64}$/.test(list) ? list : null;
+    if (!id && !okList) return null;
+    const t = parseInt(x.searchParams.get('t') || x.searchParams.get('start') || '0', 10) || 0;
+    const q = (extra = '') => `rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}${okList ? '&list=' + okList : ''}${t ? '&start=' + t : ''}${extra}`;
+    const path = id ? id : 'videoseries';
+    return {
+      kind: 'yt', id,
+      // thử youtube.com trước, nếu YouTube báo lỗi thì tự đổi sang youtube-nocookie
+      srcs: [`https://www.youtube.com/embed/${path}?${q()}`, `https://www.youtube-nocookie.com/embed/${path}?${q()}`],
+      src: `https://www.youtube.com/embed/${path}?${q()}`,
+      open: id ? `https://www.youtube.com/watch?v=${id}${okList ? '&list=' + okList : ''}` : `https://www.youtube.com/playlist?list=${okList}`,
+      thumb: id ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg` : null,
+      label: 'YouTube',
+    };
+  }
   return null;
 }
-function openSongForm(row) {
-  formModal({
-    title: row ? 'Sửa bài hát' : 'Thêm bài hát',
-    values: row || {},
-    fields: [
-      { name: 'title', label: 'Tên bài hát', required: true },
-      { name: 'artist', label: 'Ca sĩ' },
-      { name: 'url', label: 'Link Spotify hoặc YouTube', type: 'url', ph: 'https://…' },
-      { name: 'reason', label: 'Vì sao bài hát này có ý nghĩa?', type: 'textarea', rows: 3 },
-      { name: 'memory', label: 'Gắn với kỷ niệm nào?', ph: 'Ví dụ: Lần đầu đi chơi cùng nhau' },
-    ],
-    onSubmit: async (v) => { await crud.save('songs', row?.id, v); await refresh(renderPlaylist); },
-  });
+
+// khung phát nhạc: có dự phòng khi trình phát báo lỗi
+function songPlayer(em, title) {
+  const box = h('div', { class: 'player' });
+  const fallback = (why) => {
+    box.replaceChildren(h('div', { class: 'player-fb' },
+      em.thumb ? h('img', { src: em.thumb, alt: '', loading: 'lazy' }) : null,
+      h('div', null,
+        h('p', null, why || `Bài này không phát được ngay trong trang. Bấm nút bên dưới để nghe trên ${em.label} nhé.`),
+        h('a', { class: 'btn primary sm', href: em.open, target: '_blank', rel: 'noopener noreferrer' }, `♪ Mở trên ${em.label}`))));
+  };
+  let tryIdx = 0, frame = null;
+  const mount = () => {
+    const src = em.kind === 'yt' ? em.srcs[tryIdx] : em.src;
+    frame = h('iframe', {
+      src, class: (em.kind === 'yt' ? 'yt' : em.tall ? 'sp tall' : 'sp'), title: title || 'Trình phát nhạc',
+      allow: 'autoplay; encrypted-media; picture-in-picture; clipboard-write; fullscreen', allowfullscreen: true,
+      referrerpolicy: 'strict-origin-when-cross-origin',
+    });
+    if (em.kind === 'yt') {
+      // YouTube báo lỗi qua postMessage → thử nguồn khác rồi mới dùng dự phòng
+      frame.addEventListener('load', () => { try { frame.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 1, channel: 'widget' }), '*'); } catch {} });
+    }
+    box.replaceChildren(frame, h('p', { class: 'player-note' }, em.kind === 'sp' ? 'Spotify chỉ phát bản nghe thử 30 giây nếu bạn chưa đăng nhập Spotify trên trình duyệt này.' : '', ' ', h('a', { href: em.open, target: '_blank', rel: 'noopener noreferrer' }, `Không nghe được? Mở trên ${em.label}`)));
+  };
+  const onMsg = (e) => {
+    if (!frame || e.source !== frame.contentWindow) return;
+    let d = e.data;
+    if (typeof d === 'string') { try { d = JSON.parse(d); } catch { return; } }
+    if (d && d.event === 'onError') {
+      if (em.kind === 'yt' && tryIdx + 1 < em.srcs.length) { tryIdx++; mount(); }
+      else fallback(d.info === 100 ? 'Video này đã bị xoá hoặc để riêng tư.' : '');
+    }
+  };
+  window.addEventListener('message', onMsg);
+  const mo = new MutationObserver(() => { if (!document.contains(box)) { window.removeEventListener('message', onMsg); mo.disconnect(); } });
+  mo.observe(document.body, { childList: true, subtree: true });
+  mount();
+  return box;
 }
+
 function renderPlaylist() {
   $('#playlist-tools').replaceChildren(addBtn('♪ Thêm bài hát', () => openSongForm()));
   const hasBgm = S.settings.bgm_key || S.settings.bgm_url;
@@ -546,12 +609,12 @@ function renderPlaylist() {
           const card = h('article', { class: 'song glass reveal' });
           const slot = h('div');
           let open = false;
-          const btn = em ? h('button', { class: 'btn ghost sm', onclick: () => { open = !open; card.classList.toggle('play', open); btn.textContent = open ? 'Đóng trình phát' : '▶\uFE0E Nghe tại đây'; slot.replaceChildren(open ? h('iframe', { src: em.src, class: em.yt ? 'yt' : '', allow: 'autoplay; encrypted-media; picture-in-picture', allowfullscreen: true, loading: 'lazy', title: s.title }) : ''); } }, '▶\uFE0E Nghe tại đây') : null;
+          const btn = em ? h('button', { class: 'btn ghost sm', onclick: () => { open = !open; card.classList.toggle('play', open); btn.textContent = open ? 'Đóng trình phát' : '▶\uFE0E Nghe tại đây'; slot.replaceChildren(open ? songPlayer(em, s.title) : ''); } }, '▶\uFE0E Nghe tại đây') : null;
           card.append(h('div', { class: 'disc' }), h('div', null,
             h('h4', null, s.title), s.artist ? h('div', { class: 'ar' }, s.artist) : null,
             s.reason ? h('p', { class: 'why' }, `“${s.reason}”`) : null,
             s.memory ? h('p', { class: 'mem' }, `◌ ${s.memory}`) : null,
-            h('div', { class: 'acts' }, btn, s.url ? h('a', { class: 'btn ghost sm', href: s.url, target: '_blank', rel: 'noopener noreferrer' }, '↗ Mở link') : null, rowActs(() => openSongForm(s), async () => (await confirmBox('Xoá bài hát này?')) && (await crud.del('songs', s.id), refresh(renderPlaylist)))),
+            h('div', { class: 'acts' }, btn, s.url ? h('a', { class: 'btn ghost sm', href: em ? em.open : normUrl(s.url), target: '_blank', rel: 'noopener noreferrer' }, '↗ Mở link') : null, rowActs(() => openSongForm(s), async () => (await confirmBox('Xoá bài hát này?')) && (await crud.del('songs', s.id), refresh(renderPlaylist)))),
             slot));
           return card;
         }))

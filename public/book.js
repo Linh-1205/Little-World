@@ -221,6 +221,7 @@ const NB = (() => {
     const c = s.el.cloneNode(true);
     c.removeAttribute('data-ch');
     c.querySelectorAll('[id]').forEach((e) => e.removeAttribute('id'));
+    c.querySelectorAll('iframe,video,audio').forEach((m) => m.replaceWith(h('div', { style: { width: (m.clientWidth || 200) + 'px', height: (m.clientHeight || 120) + 'px', background: 'var(--p1)', borderRadius: '12px' } })));
     const tk = c.querySelector('.nb-track');
     tk.classList.remove('out');
     tk.style.transform = `translateX(${-spreadIdx * M.per * M.pw}px)`;

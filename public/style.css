@@ -484,3 +484,14 @@ input[type=file]{padding:.6em}
 .nb-pi.sel .nb-knob{display:grid;position:absolute;width:28px;height:28px;border-radius:50%;background:var(--rose2);color:#fff;place-items:center;font-size:.9rem;touch-action:none;border:2px solid var(--card)}
 .nb-knob.rot{top:-14px;right:-14px;cursor:alias}
 .nb-knob.size{bottom:-14px;right:-14px;cursor:nwse-resize}
+
+/* trình phát nhạc */
+.player{margin-top:12px;display:grid;gap:6px}
+.song iframe{margin-top:0}
+.song iframe.sp.tall{min-height:352px}
+.player-note{font-size:.78rem;color:var(--ink2)}
+.player-note a{color:var(--rose3)}
+.player-fb{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;padding:12px;background:var(--p1);border-radius:12px}
+.player-fb img{width:120px;aspect-ratio:16/9;object-fit:cover;border-radius:8px}
+.player-fb p{margin-bottom:8px;font-size:.9rem}
+@media(max-width:560px){.player-fb{grid-template-columns:1fr}.player-fb img{width:100%}}
