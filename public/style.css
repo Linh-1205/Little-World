@@ -478,3 +478,9 @@ input[type=file]{padding:.6em}
 .nb-photobar[hidden]{display:none}
 .nb-pb-t{font-size:.8rem;color:var(--ink2);margin-right:4px}
 .nb-photobar .sq{min-width:36px;padding-inline:.6em}
+
+/* núm xoay & thu phóng nằm sát góc ảnh */
+.nb-knob{display:none}
+.nb-pi.sel .nb-knob{display:grid;position:absolute;width:28px;height:28px;border-radius:50%;background:var(--rose2);color:#fff;place-items:center;font-size:.9rem;touch-action:none;border:2px solid var(--card)}
+.nb-knob.rot{top:-14px;right:-14px;cursor:alias}
+.nb-knob.size{bottom:-14px;right:-14px;cursor:nwse-resize}

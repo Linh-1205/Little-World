@@ -66,12 +66,8 @@ const NB = (() => {
     file.addEventListener('change', async () => { const l = [...file.files]; file.value = ''; for (const f of l) await addPhoto(f); });
     const btn = (label, fn, cls = '') => h('button', { class: 'btn ghost sm ' + cls, type: 'button', onclick: fn }, label);
     photoBar = h('div', { class: 'nb-photobar', hidden: true },
-      h('span', { class: 'nb-pb-t' }, 'Ảnh đang chọn:'),
+      h('span', { class: 'nb-pb-t' }, 'Ảnh đang chọn (kéo ⟳ để xoay, ⤡ để thu phóng):'),
       btn('✎ Trang trí', () => { const [s, ph] = selPhoto(); ph && editPhoto(s, ph); }),
-      btn('⟲', () => tweak((ph) => (ph.r = Math.max(-180, ph.r - 8))), 'sq'),
-      btn('⟳', () => tweak((ph) => (ph.r = Math.min(180, ph.r + 8))), 'sq'),
-      btn('−', () => tweak((ph) => (ph.w = Math.max(0.12, ph.w - 0.06))), 'sq'),
-      btn('＋', () => tweak((ph) => (ph.w = Math.min(1, ph.w + 0.06))), 'sq'),
       btn('▲ Lên', () => { const [s, ph] = selPhoto(); ph && front(s, ph); }),
       btn('✕ Xoá', () => { const [s, ph] = selPhoto(); ph && removePhoto(s, ph.id); }, 'danger'),
     );
@@ -466,8 +462,10 @@ const NB = (() => {
   /* ───── ảnh dán ───── */
   function makePhoto(s, ph) {
     const img = h('img', { src: mu(ph.key), alt: '', draggable: false });
-    const el = h('div', { class: 'nb-pi' }, h('span', { class: 'nb-tape' }), img, Deco.tiny([...ph.id].reduce((a, c) => a + c.charCodeAt(0), 0)));
-    el.addEventListener('pointerdown', (e) => drag(e, s, ph, el));
+    const rot = h('span', { class: 'nb-knob rot', title: 'Xoay ảnh' }, '⟳');
+    const size = h('span', { class: 'nb-knob size', title: 'Thu phóng ảnh' }, '⤡');
+    const el = h('div', { class: 'nb-pi' }, h('span', { class: 'nb-tape' }), img, Deco.tiny([...ph.id].reduce((a, c) => a + c.charCodeAt(0), 0)), rot, size);
+    el.addEventListener('pointerdown', (e) => drag(e, s, ph, el, e.target === rot ? 'rot' : e.target === size ? 'size' : 'move'));
     return el;
   }
 
@@ -486,15 +484,6 @@ const NB = (() => {
     if (photoBar) photoBar.hidden = !(s.id === active && s.sel);
   }
   const selPhoto = () => { const s = st[active]; if (!s || !s.sel) return []; const [ph] = findPhoto(s, s.sel); return [s, ph]; };
-  // thay đổi ảnh đang chọn từ thanh nút dưới sổ
-  function tweak(fn) {
-    const [s, ph] = selPhoto();
-    if (!ph) return;
-    fn(ph);
-    placePhoto(s.pe.get(ph.id), ph);
-    relayoutText(s);
-    save(s);
-  }
 
   function front(s, ph) {
     ph.z = Math.max(0, ...docOf(s.id).pages.flatMap((p) => p.photos.map((x) => x.z || 0))) + 1;
@@ -502,16 +491,37 @@ const NB = (() => {
     save(s);
   }
 
-  function drag(e, s, ph, el) {
+  function drag(e, s, ph, el, mode = 'move') {
     e.preventDefault();
     select(s, ph.id);
     const doc = docOf(s.id);
     let pgIdx = doc.pages.findIndex((p) => p.photos.includes(ph));
     const rect0 = s.pages[pgIdx].el.getBoundingClientRect();
     const gx = (e.clientX - rect0.left) / M.pw - ph.x, gy = (e.clientY - rect0.top) / M.H - ph.y;
+    const o = { w: ph.w, r: ph.r, sx: e.clientX };
+    const box = el.getBoundingClientRect();
+    const cx = box.left + box.width / 2, cy = box.top + box.height / 2;
+    const a0 = (Math.atan2(e.clientY - cy, e.clientX - cx) * 180) / Math.PI;
     let moved = false;
     const onMove = (ev) => {
       moved = true;
+      if (mode === 'size') {
+        ph.w = Math.min(1, Math.max(0.12, o.w + (ev.clientX - o.sx) / M.pw));
+        placePhoto(el, ph);
+        cancelAnimationFrame(drag.raf);
+        drag.raf = requestAnimationFrame(() => relayoutText(s));
+        return;
+      }
+      if (mode === 'rot') {
+        let a = (Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180) / Math.PI - a0 + o.r;
+        if (a > 180) a -= 360;
+        if (a < -180) a += 360;
+        ph.r = Math.abs(a) < 4 ? 0 : Math.round(a);
+        placePhoto(el, ph);
+        cancelAnimationFrame(drag.raf);
+        drag.raf = requestAnimationFrame(() => relayoutText(s));
+        return;
+      }
       let target = pgIdx;
       s.pages.forEach((p, i) => {
         const r = p.el.getBoundingClientRect();
