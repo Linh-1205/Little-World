@@ -18,7 +18,7 @@ const NB = (() => {
   let frame, view, rings, indic, prevB, nextB, area, saveNote, bar, photoBar;
   let raf = 0;
 
-  let tapAt = null, turning = false, chCb = null;
+  let tapAt = null, turning = false, chCb = null, shown = false;
   const uid = () => Math.random().toString(36).slice(2, 10);
 
   /* ───── dựng khung sổ ───── */
@@ -172,8 +172,36 @@ const NB = (() => {
   function showSpread(s, n) {
     if (turning) return;
     const calm = !frame.animate || matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (Math.abs(n - s.cur) !== 1 || calm || !s.el.classList.contains('on')) return fade(s, n);
-    flip(s, n, s, n > s.cur);
+    if (calm || !s.el.classList.contains('on')) return fade(s, n);
+    if (Math.abs(n - s.cur) === 1) return void flip(s, n, s, n > s.cur);
+    goTo(s.id, n);
+  }
+
+  // thứ tự toàn bộ các lượt trang của cuốn sổ (qua mọi mục)
+  const allSpreads = () => order.flatMap((id) => Array.from({ length: spreads(st[id]) }, (_, i) => [id, i]));
+
+  // lật liên tiếp qua các trang ở giữa để tới mục / trang đích
+  async function goTo(id, n = 0) {
+    const list = allSpreads();
+    const at = (cid, i) => list.findIndex(([c, k]) => c === cid && k === i);
+    const from = at(active, st[active].cur), to = at(id, Math.min(n, spreads(st[id]) - 1));
+    if (from < 0 || to < 0 || from === to || turning) return;
+    const dir = to > from ? 1 : -1, steps = Math.abs(to - from);
+    // quá nhiều trang thì lật thưa ra cho vừa vài giây
+    const stride = Math.max(1, Math.ceil(steps / 10));
+    const path = [];
+    for (let g = from + dir * stride; dir > 0 ? g < to : g > to; g += dir * stride) path.push(g);
+    path.push(to);
+    const dur = path.length === 1 ? 820 : Math.max(170, Math.min(480, 2600 / path.length));
+    turning = true;
+    try {
+      for (const g of path) {
+        const [cid, i] = list[g];
+        await flip(st[active], i, st[cid], dir > 0, dur);
+      }
+    } finally {
+      turning = false;
+    }
   }
 
   // chuyển nhanh (nhảy nhiều trang)
@@ -202,8 +230,9 @@ const NB = (() => {
     return el;
   }
 
-  function flip(s, n, s2, fwd) {
+  function flip(s, n, s2, fwd, dur = 820) {
     const pw = M.pw, spread = M.per === 2;
+    const solo = !turning;
     turning = true;
     const half = (cls, left, ...kids) => h('div', { class: cls, style: { left: left + 'px', width: pw + 'px' } }, ...kids);
     let under, flipper, frames;
@@ -226,19 +255,25 @@ const NB = (() => {
     // bóng đổ khi giấy cong lên
     const shades = $$('.nb-shade', flipper);
     const front = shades[0], back = shades[1];
-    const T = { duration: 820, easing: 'cubic-bezier(.55,.08,.25,1)', fill: 'forwards' };
+    const T = { duration: dur, easing: dur < 600 ? 'cubic-bezier(.45,.1,.3,1)' : 'cubic-bezier(.55,.08,.25,1)', fill: 'forwards' };
     front?.animate([{ opacity: 0 }, { opacity: 0.22, offset: 0.5 }, { opacity: 0.22 }], T);
     back?.animate([{ opacity: 0.22 }, { opacity: 0.22, offset: 0.5 }, { opacity: 0 }], T);
     const a = flipper.animate(frames, T);
-    const done = () => {
-      if (s2 !== s) activate(s2, n);
-      else {
-        s.cur = n;
-        refresh(s);
-      }
-      requestAnimationFrame(() => { wrap.remove(); turning = false; });
-    };
-    a.finished.then(done, done);
+    return new Promise((resolve) => {
+      const done = () => {
+        if (s2 !== s) activate(s2, n);
+        else {
+          s.cur = n;
+          refresh(s);
+        }
+        requestAnimationFrame(() => {
+          wrap.remove();
+          if (solo) turning = false;
+          resolve();
+        });
+      };
+      a.finished.then(done, done);
+    });
   }
 
   /* ───── trang tự do ───── */
@@ -711,6 +746,13 @@ const NB = (() => {
     open(id) {
       if (!st[id]) return;
       flush();
+      const calm = !frame.animate || matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (shown && active && id !== active && !calm && !turning && frame.clientWidth) {
+        area.blur();
+        goTo(id, 0);
+        return;
+      }
+      shown = true;
       active = id;
       if (photoBar) photoBar.hidden = true;
       Object.values(st).forEach((s) => s.el.classList.toggle('on', s.id === id));
@@ -722,6 +764,7 @@ const NB = (() => {
         select(st[id], st[id].sel);
       });
     },
+    close() { shown = false; },
     onChapter(f) { chCb = f; },
     schedule,
     flush,

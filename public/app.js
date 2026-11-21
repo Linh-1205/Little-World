@@ -148,7 +148,7 @@ function route() {
   $('#book').hidden = !isChap;
   $$('#links a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + (isChap ? id : 'home')));
   if (isChap) NB.open(id);
-  else window.scrollTo(0, 0);
+  else { NB.close(); window.scrollTo(0, 0); }
 }
 
 let revealIO;
