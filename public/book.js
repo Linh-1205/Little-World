@@ -134,17 +134,79 @@ const NB = (() => {
 
   function turn(d) {
     const s = st[active];
-    if (!s) return;
+    if (!s || s.busy) return;
     const n = Math.min(spreads(s) - 1, Math.max(0, s.cur + d));
     if (n !== s.cur) showSpread(s, n);
   }
+
   function showSpread(s, n) {
+    if (s.busy) return;
+    const calm = !frame.animate || matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (Math.abs(n - s.cur) !== 1 || calm || !s.el.classList.contains('on')) return fade(s, n);
+    flip(s, n);
+  }
+
+  // chuyển nhanh (nhảy nhiều trang)
+  function fade(s, n) {
     s.track.classList.add('out');
     setTimeout(() => {
       s.cur = n;
       refresh(s);
       s.track.classList.remove('out');
     }, 140);
+  }
+
+  /* ───── hiệu ứng lật trang 3D ───── */
+  // một mặt giấy chứa bản sao của một trang (L = trang trái, R = trang phải, P = trang đơn)
+  function face(s, spreadIdx, side, back) {
+    const c = s.el.cloneNode(true);
+    c.removeAttribute('data-ch');
+    c.querySelectorAll('[id]').forEach((e) => e.removeAttribute('id'));
+    const tk = c.querySelector('.nb-track');
+    tk.classList.remove('out');
+    tk.style.transform = `translateX(${-spreadIdx * M.per * M.pw}px)`;
+    Object.assign(c.style, { position: 'absolute', top: 0, left: (side === 'R' ? -M.pw : 0) + 'px', width: M.W + 'px', height: '100%', visibility: 'visible', pointerEvents: 'none' });
+    const corners = side === 'L' ? ['tl', 'bl'] : side === 'R' ? ['tr', 'br'] : ['tl', 'br'];
+    const el = h('div', { class: 'nb-face' + (back ? ' back' : '') }, ...corners.map((k) => Deco.html(Deco.corner(k))), c);
+    el.append(h('div', { class: 'nb-shade' }));
+    return el;
+  }
+
+  function flip(s, n) {
+    const fwd = n > s.cur;
+    const pw = M.pw, spread = M.per === 2;
+    s.busy = true;
+    const half = (cls, left, ...kids) => h('div', { class: cls, style: { left: left + 'px', width: pw + 'px' } }, ...kids);
+    let under, flipper, frames;
+    if (spread) {
+      under = half('nb-under', fwd ? pw : 0, face(s, n, fwd ? 'R' : 'L'));
+      const front = face(s, s.cur, fwd ? 'R' : 'L');
+      const back = face(s, n, fwd ? 'L' : 'R', true);
+      flipper = half('nb-flip', fwd ? pw : 0, front, back);
+      flipper.style.transformOrigin = fwd ? 'left center' : 'right center';
+      frames = [{ transform: 'rotateY(0deg)' }, { transform: `rotateY(${fwd ? -180 : 180}deg)` }];
+    } else {
+      const blank = h('div', { class: 'nb-face back' }, h('div', { class: 'nb-shade' }));
+      under = half('nb-under', 0, face(s, fwd ? n : s.cur, 'P'));
+      flipper = half('nb-flip', 0, face(s, fwd ? s.cur : n, 'P'), blank);
+      flipper.style.transformOrigin = 'left center';
+      frames = fwd ? [{ transform: 'rotateY(0deg)' }, { transform: 'rotateY(-180deg)' }] : [{ transform: 'rotateY(-180deg)' }, { transform: 'rotateY(0deg)' }];
+    }
+    const wrap = h('div', { class: 'nb-flipwrap' }, under, flipper);
+    frame.append(wrap);
+    // bóng đổ khi giấy cong lên
+    const shades = $$('.nb-shade', flipper);
+    const front = shades[0], back = shades[1];
+    const T = { duration: 820, easing: 'cubic-bezier(.55,.08,.25,1)', fill: 'forwards' };
+    front?.animate([{ opacity: 0 }, { opacity: 0.22, offset: 0.5 }, { opacity: 0.22 }], T);
+    back?.animate([{ opacity: 0.22 }, { opacity: 0.22, offset: 0.5 }, { opacity: 0 }], T);
+    const a = flipper.animate(frames, T);
+    const done = () => {
+      s.cur = n;
+      refresh(s);
+      requestAnimationFrame(() => { wrap.remove(); s.busy = false; });
+    };
+    a.finished.then(done, done);
   }
 
   /* ───── trang tự do ───── */
