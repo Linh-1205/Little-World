@@ -188,11 +188,12 @@ const NB = (() => {
     if (from < 0 || to < 0 || from === to || turning) return;
     const dir = to > from ? 1 : -1, steps = Math.abs(to - from);
     // quá nhiều trang thì lật thưa ra cho vừa vài giây
-    const stride = Math.max(1, Math.ceil(steps / 10));
+    const stride = Math.max(1, Math.ceil(steps / 14));
     const path = [];
     for (let g = from + dir * stride; dir > 0 ? g < to : g > to; g += dir * stride) path.push(g);
     path.push(to);
-    const dur = path.length === 1 ? 820 : Math.max(170, Math.min(480, 2600 / path.length));
+    // cả chuỗi lật chỉ khoảng 1 giây dù xa bao nhiêu trang
+    const dur = Math.max(55, Math.min(820, 1000 / path.length));
     turning = true;
     try {
       for (const g of path) {
