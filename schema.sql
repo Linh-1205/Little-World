@@ -114,3 +114,11 @@ CREATE TABLE IF NOT EXISTS media (
   data BLOB NOT NULL,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
+
+-- Cuốn sổ: mỗi chương một trang tự do (chữ + ảnh dán), lưu dạng JSON
+CREATE TABLE IF NOT EXISTS notebook (
+  chapter TEXT PRIMARY KEY,
+  data TEXT NOT NULL,
+  by_who TEXT,
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);

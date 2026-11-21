@@ -51,6 +51,32 @@ const TABLES = {
   },
 };
 
+const CHAPTERS = ['story', 'memories', 'letters', 'playlist', 'days', 'bucket', 'little', 'surprise'];
+
+// làm sạch dữ liệu một chương của cuốn sổ (chữ + các trang + ảnh dán)
+function cleanNotebook(d) {
+  const num = (v, lo, hi, dflt) => {
+    v = Number(v);
+    return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt;
+  };
+  const out = { text: String(d?.text ?? '').slice(0, 30000), pages: [] };
+  for (const pg of (Array.isArray(d?.pages) ? d.pages : []).slice(0, 40)) {
+    const photos = [];
+    for (const ph of (Array.isArray(pg?.photos) ? pg.photos : []).slice(0, 30)) {
+      if (!ph || typeof ph.key !== 'string' || !KEY_RE.test(ph.key)) continue;
+      photos.push({
+        id: String(ph.id || '').replace(/[^\w-]/g, '').slice(0, 24) || crypto.randomUUID().slice(0, 8),
+        key: ph.key,
+        x: num(ph.x, -1, 2, 0.2), y: num(ph.y, -1, 2, 0.2), w: num(ph.w, 0.05, 1.2, 0.4),
+        ar: num(ph.ar, 0.2, 5, 0.75), r: num(ph.r, -180, 180, 0), z: Math.round(num(ph.z, 0, 9999, 0)),
+      });
+    }
+    out.pages.push({ photos });
+  }
+  return out;
+}
+const nbKeys = (d) => (d?.pages || []).flatMap((p) => (p.photos || []).map((x) => x.key));
+
 const SETTING_KEYS = ['name_a', 'name_b', 'start_date', 'hero_key', 'bgm_url', 'bgm_key', 'anniv_title', 'anniv_message'];
 const SETTING_MEDIA = ['hero_key', 'bgm_key'];
 
@@ -190,6 +216,10 @@ async function handle(request, env, url, parts) {
     const s = await env.DB.prepare('SELECT k, v FROM settings').all();
     out.settings = Object.fromEntries(s.results.map((r) => [r.k, r.v]));
     for (const t of Object.keys(TABLES)) out[t] = await listTable(env, t, me);
+    out.notebook = {};
+    for (const r of (await env.DB.prepare('SELECT chapter, data FROM notebook').all()).results) {
+      try { out.notebook[r.chapter] = JSON.parse(r.data); } catch {}
+    }
     return json(out);
   }
 
@@ -270,6 +300,25 @@ async function handle(request, env, url, parts) {
     return new Response(method === 'HEAD' ? null : body, {
       headers: { 'content-type': row.type, 'cache-control': 'private, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' },
     });
+  }
+
+  /* --- cuốn sổ: trang tự do của từng chương --- */
+  if (a === 'notebook' && method === 'PUT' && CHAPTERS.includes(b)) {
+    const body = await request.json().catch(() => ({}));
+    const data = cleanNotebook(body.data);
+    const text = JSON.stringify(data);
+    if (text.length > 300000) return fail('Trang sổ quá lớn');
+    const old = await env.DB.prepare('SELECT data FROM notebook WHERE chapter = ?').bind(b).first();
+    await env.DB.prepare(
+      "INSERT INTO notebook (chapter, data, by_who, updated_at) VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now')) ON CONFLICT(chapter) DO UPDATE SET data = excluded.data, by_who = excluded.by_who, updated_at = excluded.updated_at",
+    ).bind(b, text, me).run();
+    if (old) {
+      let prev = [];
+      try { prev = nbKeys(JSON.parse(old.data)); } catch {}
+      const keep = new Set(nbKeys(data));
+      await dropMedia(env, ...prev.filter((k) => !keep.has(k)));
+    }
+    return json({ ok: true });
   }
 
   /* --- các bảng dữ liệu --- */

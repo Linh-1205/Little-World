@@ -12,6 +12,8 @@ Chạy hoàn toàn trên **Cloudflare** (miễn phí cho nhu cầu cá nhân):
 ## 9 khu vực
 Home (đếm thời gian bên nhau, câu nói đổi mỗi lần vào) · Our Story · Memories (Polaroid, lightbox, tìm theo ngày) · Love Letters (phong bì, thư riêng tư, thư hẹn ngày) · Our Playlist (Spotify/YouTube + nhạc nền) · Special Days (countdown, nhắc nhở) · Bucket List · Little Things · Surprise (hộp quà, thư tương lai, ảnh ẩn, trang kỷ niệm).
 
+**Cuốn sổ:** cả web là một cuốn sổ — mỗi mục là một chương, nội dung dài tự sang trang (lật bằng nút ‹ ›, phím mũi tên hoặc vuốt). Mỗi chương có các trang tự do: dán ảnh ở bất kỳ đâu (kéo, xoay, đổi cỡ), viết chữ lên dòng kẻ — chữ tự né ảnh và chạy theo khi ảnh di chuyển.
+
 **Trình trang trí ảnh:** khung (Polaroid, vòm, trái tim, phim…), bộ lọc, nhãn dán, washi tape, chữ, vẽ tay (bút / bút dạ / tẩy) hoặc vẽ trên giấy trắng.
 
 ## Cài đặt trên Cloudflare (không cần thẻ, không cần R2)

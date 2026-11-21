@@ -12,5 +12,6 @@ export const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS surprises ( id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, title TEXT, content TEXT, photo_key TEXT, unlock_at TEXT, from_who TEXT NOT NULL, opened INTEGER NOT NULL DEFAULT 0, opened_at TEXT, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')) )",
   "CREATE TABLE IF NOT EXISTS login_fails ( ip TEXT NOT NULL, ts INTEGER NOT NULL )",
   "CREATE INDEX IF NOT EXISTS idx_login_fails ON login_fails(ip, ts)",
-  "CREATE TABLE IF NOT EXISTS media ( key TEXT PRIMARY KEY, type TEXT NOT NULL, size INTEGER, data BLOB NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')) )"
+  "CREATE TABLE IF NOT EXISTS media ( key TEXT PRIMARY KEY, type TEXT NOT NULL, size INTEGER, data BLOB NOT NULL, created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')) )",
+  "CREATE TABLE IF NOT EXISTS notebook ( chapter TEXT PRIMARY KEY, data TEXT NOT NULL, by_who TEXT, updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')) )",
 ];

@@ -125,28 +125,23 @@ function buildShell() {
   links.addEventListener('click', (e) => e.target.tagName === 'A' && links.classList.remove('open'));
   $('#menuBtn').addEventListener('click', () => links.classList.toggle('open'));
   document.addEventListener('pointerdown', (e) => !e.target.closest('#links,#menuBtn') && links.classList.remove('open'));
-  const wrap = $('#sections');
-  SECTIONS.forEach(([id, no, title, sub]) =>
-    wrap.append(
-      h('section', { class: 'sec', id },
-        h('div', { class: 'wrap' },
-          h('header', { class: 'sec-head reveal' }, h('span', { class: 'no' }, no), h('h2', null, title), h('p', null, sub)),
-          h('div', { class: 'tools reveal', id: id + '-tools' }),
-          h('div', { id: id + '-body' }),
-        ),
-      ),
-    ),
-  );
+  NB.build($('#sections'), SECTIONS);
   $('#setBtn').addEventListener('click', openSettings);
   $('#setupBtn').addEventListener('click', openSettings);
   $('#bgmBtn').addEventListener('click', toggleBgm);
   setupGate();
-  // làm nổi mục đang xem trên thanh điều hướng
-  const spy = new IntersectionObserver(
-    (en) => en.forEach((x) => x.isIntersecting && $$('#links a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + x.target.id))),
-    { rootMargin: '-45% 0px -50% 0px' },
-  );
-  $$('main section').forEach((s) => spy.observe(s));
+  window.addEventListener('hashchange', route);
+}
+
+// Home = bìa sổ; các mục còn lại = chương trong cuốn sổ
+function route() {
+  const id = (location.hash || '#home').slice(1);
+  const isChap = SECTIONS.some((x) => x[0] === id);
+  $('#home').hidden = isChap;
+  $('#book').hidden = !isChap;
+  $$('#links a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + (isChap ? id : 'home')));
+  if (isChap) NB.open(id);
+  else window.scrollTo(0, 0);
 }
 
 let revealIO;
@@ -165,7 +160,9 @@ function renderAll() {
   renderBucket();
   renderLittle();
   renderSurprise();
+  NB.load(S.notebook);
   observeReveals();
+  route();
 }
 
 /* thao tác dữ liệu chung */
