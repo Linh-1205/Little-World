@@ -18,7 +18,7 @@ const NB = (() => {
   let frame, view, rings, indic, prevB, nextB, area, saveNote, bar, photoBar;
   let raf = 0;
 
-  let tapAt = null;
+  let tapAt = null, turning = false, chCb = null;
   const uid = () => Math.random().toString(36).slice(2, 10);
 
   /* ───── dựng khung sổ ───── */
@@ -41,7 +41,7 @@ const NB = (() => {
       const track = h('div', { class: 'nb-track' }, flow);
       const el = h('div', { class: 'nb-chap', 'data-ch': id }, track);
       view.append(el);
-      st[id] = { id, el, track, flow, N: 1, cur: 0, pages: [], pe: new Map(), sel: null, timer: 0, dirty: false };
+      st[id] = { id, title, el, track, flow, N: 1, cur: 0, pages: [], pe: new Map(), sel: null, timer: 0, dirty: false };
       new MutationObserver(() => schedule()).observe(flow, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
       flow.addEventListener('load', schedule, true);
     });
@@ -138,23 +138,42 @@ const NB = (() => {
     s.cur = Math.min(s.cur, spreads(s) - 1);
     s.track.style.transform = `translateX(${-s.cur * M.per * M.pw}px)`;
     const T = total(s), a = s.cur * M.per + 1, b = Math.min(T, a + M.per - 1);
-    indic.textContent = M.per === 2 && b > a ? `Trang ${a}–${b} / ${T}` : `Trang ${a} / ${T}`;
-    prevB.disabled = s.cur <= 0;
-    nextB.disabled = s.cur >= spreads(s) - 1;
+    indic.textContent = `${s.title} · ` + (M.per === 2 && b > a ? `trang ${a}–${b} / ${T}` : `trang ${a} / ${T}`);
+    const k = order.indexOf(s.id);
+    prevB.disabled = k === 0 && s.cur <= 0;
+    nextB.disabled = k === order.length - 1 && s.cur >= spreads(s) - 1;
   }
 
+  // lật trang: hết mục này thì sang thẳng mục kế tiếp (và ngược lại)
   function turn(d) {
     const s = st[active];
-    if (!s || s.busy) return;
-    const n = Math.min(spreads(s) - 1, Math.max(0, s.cur + d));
-    if (n !== s.cur) showSpread(s, n);
+    if (!s || turning) return;
+    const n = s.cur + d;
+    if (n >= 0 && n < spreads(s)) return showSpread(s, n);
+    const s2 = st[order[order.indexOf(s.id) + (d > 0 ? 1 : -1)]];
+    if (!s2) return;
+    const target = d > 0 ? 0 : spreads(s2) - 1;
+    if (!frame.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return activate(s2, target);
+    flip(s, target, s2, d > 0);
+  }
+
+  // chuyển sang một mục khác
+  function activate(s2, n) {
+    active = s2.id;
+    Object.values(st).forEach((x) => x.el.classList.toggle('on', x === s2));
+    if (photoBar) photoBar.hidden = true;
+    area.blur();
+    s2.cur = n;
+    refresh(s2);
+    select(s2, s2.sel);
+    chCb && chCb(s2.id);
   }
 
   function showSpread(s, n) {
-    if (s.busy) return;
+    if (turning) return;
     const calm = !frame.animate || matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (Math.abs(n - s.cur) !== 1 || calm || !s.el.classList.contains('on')) return fade(s, n);
-    flip(s, n);
+    flip(s, n, s, n > s.cur);
   }
 
   // chuyển nhanh (nhảy nhiều trang)
@@ -183,23 +202,22 @@ const NB = (() => {
     return el;
   }
 
-  function flip(s, n) {
-    const fwd = n > s.cur;
+  function flip(s, n, s2, fwd) {
     const pw = M.pw, spread = M.per === 2;
-    s.busy = true;
+    turning = true;
     const half = (cls, left, ...kids) => h('div', { class: cls, style: { left: left + 'px', width: pw + 'px' } }, ...kids);
     let under, flipper, frames;
     if (spread) {
-      under = half('nb-under', fwd ? pw : 0, face(s, n, fwd ? 'R' : 'L'));
+      under = half('nb-under', fwd ? pw : 0, face(s2, n, fwd ? 'R' : 'L'));
       const front = face(s, s.cur, fwd ? 'R' : 'L');
-      const back = face(s, n, fwd ? 'L' : 'R', true);
+      const back = face(s2, n, fwd ? 'L' : 'R', true);
       flipper = half('nb-flip', fwd ? pw : 0, front, back);
       flipper.style.transformOrigin = fwd ? 'left center' : 'right center';
       frames = [{ transform: 'rotateY(0deg)' }, { transform: `rotateY(${fwd ? -180 : 180}deg)` }];
     } else {
       const blank = h('div', { class: 'nb-face back' }, h('div', { class: 'nb-shade' }));
-      under = half('nb-under', 0, face(s, fwd ? n : s.cur, 'P'));
-      flipper = half('nb-flip', 0, face(s, fwd ? s.cur : n, 'P'), blank);
+      under = half('nb-under', 0, fwd ? face(s2, n, 'P') : face(s, s.cur, 'P'));
+      flipper = half('nb-flip', 0, fwd ? face(s, s.cur, 'P') : face(s2, n, 'P'), blank);
       flipper.style.transformOrigin = 'left center';
       frames = fwd ? [{ transform: 'rotateY(0deg)' }, { transform: 'rotateY(-180deg)' }] : [{ transform: 'rotateY(-180deg)' }, { transform: 'rotateY(0deg)' }];
     }
@@ -213,9 +231,12 @@ const NB = (() => {
     back?.animate([{ opacity: 0.22 }, { opacity: 0.22, offset: 0.5 }, { opacity: 0 }], T);
     const a = flipper.animate(frames, T);
     const done = () => {
-      s.cur = n;
-      refresh(s);
-      requestAnimationFrame(() => { wrap.remove(); s.busy = false; });
+      if (s2 !== s) activate(s2, n);
+      else {
+        s.cur = n;
+        refresh(s);
+      }
+      requestAnimationFrame(() => { wrap.remove(); turning = false; });
     };
     a.finished.then(done, done);
   }
@@ -701,6 +722,7 @@ const NB = (() => {
         select(st[id], st[id].sel);
       });
     },
+    onChapter(f) { chCb = f; },
     schedule,
     flush,
   };

@@ -133,6 +133,11 @@ function buildShell() {
   $('#bgmBtn').addEventListener('click', toggleBgm);
   setupGate();
   window.addEventListener('hashchange', route);
+  // lật qua mục khác trong sổ: cập nhật địa chỉ và thanh menu
+  NB.onChapter((id) => {
+    history.replaceState(null, '', '#' + id);
+    $$('#links a').forEach((l) => l.classList.toggle('on', l.getAttribute('href') === '#' + id));
+  });
 }
 
 // Home = bìa sổ; các mục còn lại = chương trong cuốn sổ
