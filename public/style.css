@@ -446,3 +446,18 @@ input[type=file]{padding:.6em}
 .nb-write-h{display:flex;justify-content:space-between;align-items:center}
 .nb-area{min-height:120px;font:500 1.15rem/1.6 'Cormorant Garamond',Georgia,serif}
 @media(max-width:560px){.nb-arrow{width:32px;height:32px}.nb-bar-l .btn{padding:.4em .8em}.book{padding-top:76px}}
+
+/* hoa lá trang trí */
+.nb-art{position:absolute;pointer-events:none;width:min(128px,26%);height:auto;z-index:1;opacity:.95}
+.nb-art.tl{top:-6px;left:-6px}
+.nb-art.tr{top:-6px;right:-6px;transform:scaleX(-1)}
+.nb-art.bl{bottom:-6px;left:-6px;transform:scaleY(-1)}
+.nb-art.br{bottom:-6px;right:-6px;transform:scale(-1,-1)}
+.nb-frame:not(.spread) .nb-art.tr,.nb-frame:not(.spread) .nb-art.bl{display:none}
+.nb-flo{display:block;margin:8px 0 6px;width:150px;height:auto}
+.nb-bloom{position:absolute;left:-14px;bottom:-14px;width:34px;height:34px;pointer-events:none}
+.cv{position:absolute;pointer-events:none;z-index:2}
+.cv svg{width:clamp(90px,18vw,150px);height:auto;display:block}
+.cv.tl{top:-26px;left:-34px}
+.cv.br{bottom:-26px;right:-34px;transform:scale(-1,-1)}
+@media(max-width:820px){.cv.tl{left:-16px}.cv.br{right:-16px}}

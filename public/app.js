@@ -126,6 +126,8 @@ function buildShell() {
   $('#menuBtn').addEventListener('click', () => links.classList.toggle('open'));
   document.addEventListener('pointerdown', (e) => !e.target.closest('#links,#menuBtn') && links.classList.remove('open'));
   NB.build($('#sections'), SECTIONS);
+  const hp = $('.hero-photo');
+  hp.append(h('span', { class: 'cv tl' }, Deco.cluster()), h('span', { class: 'cv br' }, Deco.cluster()));
   $('#setBtn').addEventListener('click', openSettings);
   $('#setupBtn').addEventListener('click', openSettings);
   $('#bgmBtn').addEventListener('click', toggleBgm);

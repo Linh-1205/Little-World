@@ -28,10 +28,12 @@ const NB = (() => {
     view = h('div', { class: 'nb-view' });
     prevB = h('button', { class: 'nb-arrow l', type: 'button', 'aria-label': 'Trang trước', onclick: () => turn(-1) }, '‹');
     nextB = h('button', { class: 'nb-arrow r', type: 'button', 'aria-label': 'Trang sau', onclick: () => turn(1) }, '›');
-    frame.append(h('div', { class: 'nb-paper' }), rings, view, prevB, nextB);
+    const paper = h('div', { class: 'nb-paper' });
+    ['tl', 'tr', 'bl', 'br'].forEach((c) => paper.append(Deco.html(Deco.corner(c))));
+    frame.append(paper, rings, view, prevB, nextB);
     chapters.forEach(([id, no, title, sub]) => {
       const flow = h('div', { class: 'nb-flow' },
-        h('header', { class: 'sec-head' }, h('span', { class: 'no' }, no), h('h2', null, title), h('p', null, sub)),
+        h('header', { class: 'sec-head' }, h('span', { class: 'no' }, no), h('h2', null, title), Deco.divider(), h('p', null, sub)),
         h('div', { class: 'tools', id: id + '-tools' }),
         h('div', { id: id + '-body' }),
       );
@@ -302,7 +304,7 @@ const NB = (() => {
     );
     const rot = h('span', { class: 'nb-knob rot', title: 'Xoay' }, '⟳');
     const size = h('span', { class: 'nb-knob size', title: 'Đổi cỡ' }, '⤡');
-    const el = h('div', { class: 'nb-pi' }, h('span', { class: 'nb-tape' }), img, tb, rot, size);
+    const el = h('div', { class: 'nb-pi' }, h('span', { class: 'nb-tape' }), img, Deco.tiny([...ph.id].reduce((a, c) => a + c.charCodeAt(0), 0)), tb, rot, size);
     el.addEventListener('pointerdown', (e) => {
       if (e.target.closest('.nb-tb')) return;
       drag(e, s, ph, el, e.target === rot ? 'rot' : e.target === size ? 'size' : 'move');
