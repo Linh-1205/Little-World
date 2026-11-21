@@ -15,9 +15,10 @@ const NB = (() => {
   let order = [];
   let active = null;
   let M = {};
-  let frame, view, rings, indic, prevB, nextB, area, saveNote, bar;
+  let frame, view, rings, indic, prevB, nextB, area, saveNote, bar, photoBar;
   let raf = 0;
 
+  let tapAt = null;
   const uid = () => Math.random().toString(36).slice(2, 10);
 
   /* ───── dựng khung sổ ───── */
@@ -63,7 +64,18 @@ const NB = (() => {
     frame.append(area);
     const file = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true, id: 'nbFile' });
     file.addEventListener('change', async () => { const l = [...file.files]; file.value = ''; for (const f of l) await addPhoto(f); });
-    host.append(h('div', { class: 'nb-wrap' }, frame, bar, file));
+    const btn = (label, fn, cls = '') => h('button', { class: 'btn ghost sm ' + cls, type: 'button', onclick: fn }, label);
+    photoBar = h('div', { class: 'nb-photobar', hidden: true },
+      h('span', { class: 'nb-pb-t' }, 'Ảnh đang chọn:'),
+      btn('✎ Trang trí', () => { const [s, ph] = selPhoto(); ph && editPhoto(s, ph); }),
+      btn('⟲', () => tweak((ph) => (ph.r = Math.max(-180, ph.r - 8))), 'sq'),
+      btn('⟳', () => tweak((ph) => (ph.r = Math.min(180, ph.r + 8))), 'sq'),
+      btn('−', () => tweak((ph) => (ph.w = Math.max(0.12, ph.w - 0.06))), 'sq'),
+      btn('＋', () => tweak((ph) => (ph.w = Math.min(1, ph.w + 0.06))), 'sq'),
+      btn('▲ Lên', () => { const [s, ph] = selPhoto(); ph && front(s, ph); }),
+      btn('✕ Xoá', () => { const [s, ph] = selPhoto(); ph && removePhoto(s, ph.id); }, 'danger'),
+    );
+    host.append(h('div', { class: 'nb-wrap' }, frame, bar, photoBar, file));
 
     // lật trang bằng vuốt ngang / bàn phím
     let sx = 0, sy = 0, tracking = false;
@@ -82,7 +94,6 @@ const NB = (() => {
       else if (!typing && (e.key === 'Delete' || e.key === 'Backspace') && st[active]?.sel) removePhoto(st[active], st[active].sel);
     });
     window.addEventListener('resize', () => schedule(true));
-    window.addEventListener('scroll', () => { const s = st[active]; if (s?.sel) { cancelAnimationFrame(build.sc); build.sc = requestAnimationFrame(() => placeToolbar(s)); } }, { passive: true });
     document.addEventListener('visibilitychange', () => document.hidden && flush());
     document.fonts?.ready.then(() => schedule(true));
   }
@@ -108,7 +119,7 @@ const NB = (() => {
       if (!frame || !frame.clientWidth) return;
       metrics();
       Object.values(st).forEach((s) => relayout(s, schedule.full));
-      if (active) { refresh(st[active]); placeToolbar(st[active]); }
+      if (active) refresh(st[active]);
       schedule.full = false;
     });
   }
@@ -228,8 +239,17 @@ const NB = (() => {
         h('button', { class: 'nb-fp-x', type: 'button', title: 'Xoá trang này', 'aria-label': 'Xoá trang này', onclick: () => delPage(s, i) }, '✕'),
         h('span', { class: 'nb-fp-n' }, String(s.N + i + 1)),
       );
-      el.addEventListener('pointerdown', (e) => { if (!e.target.closest('.nb-pi')) select(s, null); });
-      el.addEventListener('click', (e) => { if (!e.target.closest('.nb-pi,.nb-fp-x')) clickPage(s, i, e); });
+      el.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.nb-pi,.nb-fp-x')) return;
+        select(s, null);
+        tapAt = { x: e.clientX, y: e.clientY };
+      });
+      el.addEventListener('pointerup', (e) => {
+        const t = tapAt;
+        tapAt = null;
+        if (!t || e.target.closest('.nb-pi,.nb-fp-x')) return;
+        if (Math.hypot(e.clientX - t.x, e.clientY - t.y) < 9) clickPage(s, i, e);
+      });
       s.track.append(el);
       return { el, pg };
     });
@@ -446,18 +466,8 @@ const NB = (() => {
   /* ───── ảnh dán ───── */
   function makePhoto(s, ph) {
     const img = h('img', { src: mu(ph.key), alt: '', draggable: false });
-    const tb = h('div', { class: 'nb-tb' },
-      h('button', { type: 'button', onclick: () => editPhoto(s, ph) }, '✎ Trang trí'),
-      h('button', { type: 'button', onclick: () => front(s, ph) }, '▲ Lên'),
-      h('button', { type: 'button', onclick: () => removePhoto(s, ph.id) }, '✕ Xoá'),
-    );
-    const rot = h('span', { class: 'nb-knob rot', title: 'Xoay' }, '⟳');
-    const size = h('span', { class: 'nb-knob size', title: 'Đổi cỡ' }, '⤡');
-    const el = h('div', { class: 'nb-pi' }, h('span', { class: 'nb-tape' }), img, Deco.tiny([...ph.id].reduce((a, c) => a + c.charCodeAt(0), 0)), tb, rot, size);
-    el.addEventListener('pointerdown', (e) => {
-      if (e.target.closest('.nb-tb')) return;
-      drag(e, s, ph, el, e.target === rot ? 'rot' : e.target === size ? 'size' : 'move');
-    });
+    const el = h('div', { class: 'nb-pi' }, h('span', { class: 'nb-tape' }), img, Deco.tiny([...ph.id].reduce((a, c) => a + c.charCodeAt(0), 0)));
+    el.addEventListener('pointerdown', (e) => drag(e, s, ph, el));
     return el;
   }
 
@@ -473,60 +483,49 @@ const NB = (() => {
       s.sel = id;
       s.pe.forEach((pe, k) => pe.classList.toggle('sel', k === id));
     }
-    placeToolbar(s);
+    if (photoBar) photoBar.hidden = !(s.id === active && s.sel);
+  }
+  const selPhoto = () => { const s = st[active]; if (!s || !s.sel) return []; const [ph] = findPhoto(s, s.sel); return [s, ph]; };
+  // thay đổi ảnh đang chọn từ thanh nút dưới sổ
+  function tweak(fn) {
+    const [s, ph] = selPhoto();
+    if (!ph) return;
+    fn(ph);
+    placePhoto(s.pe.get(ph.id), ph);
+    relayoutText(s);
+    save(s);
   }
 
-  // thanh công cụ nằm trên ảnh; nếu bị thanh menu / mép sổ che thì chuyển xuống dưới hoặc vào trong ảnh
-  function placeToolbar(s) {
-    s.pe.forEach((pe) => pe.classList.remove('tb-down', 'tb-in'));
-    const pe = s.sel && s.pe.get(s.sel);
-    if (!pe) return;
-    const r = pe.getBoundingClientRect(), fr = frame.getBoundingClientRect();
-    const top = Math.max(fr.top, 76), bot = Math.min(fr.bottom, innerHeight);
-    if (r.top - top >= 64) return;
-    pe.classList.add(bot - r.bottom >= 64 ? 'tb-down' : 'tb-in');
-  }
   function front(s, ph) {
     ph.z = Math.max(0, ...docOf(s.id).pages.flatMap((p) => p.photos.map((x) => x.z || 0))) + 1;
     placePhoto(s.pe.get(ph.id), ph);
     save(s);
   }
 
-  function drag(e, s, ph, el, mode) {
+  function drag(e, s, ph, el) {
     e.preventDefault();
     select(s, ph.id);
     const doc = docOf(s.id);
     let pgIdx = doc.pages.findIndex((p) => p.photos.includes(ph));
     const rect0 = s.pages[pgIdx].el.getBoundingClientRect();
     const gx = (e.clientX - rect0.left) / M.pw - ph.x, gy = (e.clientY - rect0.top) / M.H - ph.y;
-    const o = { w: ph.w, sx: e.clientX };
-    const box = el.getBoundingClientRect();
-    const cx = box.left + box.width / 2, cy = box.top + box.height / 2;
     let moved = false;
     const onMove = (ev) => {
       moved = true;
-      if (mode === 'move') {
-        let target = pgIdx;
-        s.pages.forEach((p, i) => {
-          const r = p.el.getBoundingClientRect();
-          if (ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom) target = i;
-        });
-        if (target !== pgIdx) {
-          doc.pages[pgIdx].photos.splice(doc.pages[pgIdx].photos.indexOf(ph), 1);
-          doc.pages[target].photos.push(ph);
-          s.pages[target].el.append(el);
-          pgIdx = target;
-        }
-        const r = s.pages[pgIdx].el.getBoundingClientRect();
-        ph.x = Math.min(0.95 - ph.w * 0.3, Math.max(-ph.w * 0.7, (ev.clientX - r.left) / M.pw - gx));
-        ph.y = Math.min(0.97, Math.max(-0.1, (ev.clientY - r.top) / M.H - gy));
-      } else if (mode === 'size') {
-        ph.w = Math.min(1, Math.max(0.12, o.w + (ev.clientX - o.sx) / M.pw));
-      } else {
-        let a = (Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180) / Math.PI + 90;
-        if (a > 180) a -= 360;
-        ph.r = Math.abs(a) < 4 ? 0 : Math.round(a);
+      let target = pgIdx;
+      s.pages.forEach((p, i) => {
+        const r = p.el.getBoundingClientRect();
+        if (ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom) target = i;
+      });
+      if (target !== pgIdx) {
+        doc.pages[pgIdx].photos.splice(doc.pages[pgIdx].photos.indexOf(ph), 1);
+        doc.pages[target].photos.push(ph);
+        s.pages[target].el.append(el);
+        pgIdx = target;
       }
+      const r = s.pages[pgIdx].el.getBoundingClientRect();
+      ph.x = Math.min(0.95 - ph.w * 0.3, Math.max(-ph.w * 0.7, (ev.clientX - r.left) / M.pw - gx));
+      ph.y = Math.min(0.97, Math.max(-0.1, (ev.clientY - r.top) / M.H - gy));
       placePhoto(el, ph);
       cancelAnimationFrame(drag.raf);
       drag.raf = requestAnimationFrame(() => relayoutText(s));
@@ -536,7 +535,6 @@ const NB = (() => {
       removeEventListener('pointerup', onUp);
       removeEventListener('pointercancel', onUp);
       if (moved) { relayoutText(s); save(s); }
-      placeToolbar(s);
     };
     addEventListener('pointermove', onMove);
     addEventListener('pointerup', onUp);
@@ -548,6 +546,7 @@ const NB = (() => {
     if (!ph) return;
     pg.photos.splice(pg.photos.indexOf(ph), 1);
     s.sel = null;
+    select(s, null);
     buildFree(s);
     refresh(s);
     save(s);
@@ -682,13 +681,14 @@ const NB = (() => {
       if (!st[id]) return;
       flush();
       active = id;
+      if (photoBar) photoBar.hidden = true;
       Object.values(st).forEach((s) => s.el.classList.toggle('on', s.id === id));
       area.blur();
       requestAnimationFrame(() => {
         metrics();
         Object.values(st).forEach((x) => relayout(x, true));
         refresh(st[id]);
-        placeToolbar(st[id]);
+        select(st[id], st[id].sel);
       });
     },
     schedule,

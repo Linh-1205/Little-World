@@ -430,13 +430,6 @@ input[type=file]{padding:.6em}
 .nb-tape{position:absolute;top:-10px;left:50%;width:64px;height:20px;margin-left:-32px;background:var(--p4);opacity:.9;pointer-events:none}
 .nb-pi:nth-child(odd) .nb-tape{background:var(--sky1)}
 .nb-pi.sel{outline:2px solid var(--rose2);cursor:grabbing}
-.nb-tb,.nb-knob{display:none}
-.nb-pi.sel .nb-tb{display:flex;position:absolute;left:50%;bottom:calc(100% + 18px);transform:translateX(-50%);gap:4px;background:var(--card);border:1px solid var(--p4);border-radius:999px;padding:4px;white-space:nowrap}
-.nb-tb button{border:0;background:none;border-radius:999px;padding:.25em .7em;font-size:.76rem}
-.nb-tb button:hover{background:var(--p1)}
-.nb-pi.sel .nb-knob{display:grid;position:absolute;width:26px;height:26px;border-radius:50%;background:var(--rose2);color:#fff;place-items:center;font-size:.85rem;touch-action:none}
-.nb-knob.rot{top:-36px;right:-12px;cursor:alias}
-.nb-knob.size{bottom:-13px;right:-13px;cursor:nwse-resize}
 
 .nb-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .nb-bar-l,.nb-bar-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -479,8 +472,9 @@ input[type=file]{padding:.6em}
 .nb-caret{position:absolute;width:2px;height:24px;background:var(--rose3);pointer-events:none;animation:caret 1s steps(1) infinite;z-index:1}
 @keyframes caret{50%{opacity:0}}
 
-/* thanh công cụ ảnh: đổi chỗ khi bị che */
-.nb-pi.sel.tb-down .nb-tb{bottom:auto;top:calc(100% + 18px)}
-.nb-pi.sel.tb-in .nb-tb{bottom:auto;top:50%;transform:translate(-50%,-50%)}
-.nb-pi.sel.tb-down .nb-knob.rot,.nb-pi.sel.tb-in .nb-knob.rot{top:auto;bottom:-36px;right:auto;left:-12px}
-.nb-pi.sel.tb-in .nb-knob.rot{top:-13px;bottom:auto}
+
+/* thanh nút cho ảnh đang chọn (nằm dưới sổ, không bị che) */
+.nb-photobar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 10px;background:var(--p1);border:1px solid var(--p3);border-radius:14px}
+.nb-photobar[hidden]{display:none}
+.nb-pb-t{font-size:.8rem;color:var(--ink2);margin-right:4px}
+.nb-photobar .sq{min-width:36px;padding-inline:.6em}
