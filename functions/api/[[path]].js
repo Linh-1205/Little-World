@@ -87,6 +87,7 @@ const MIME = {
 };
 const MB = 1024 * 1024;
 const LIMITS = { image: 15 * MB, video: 60 * MB, audio: 25 * MB };
+const D1_AUDIO_MAX = 12 * MB; // nhạc khi không có R2: cắt thành các mảnh ≤1MB lưu trong D1
 const D1_IMAGE_MAX = 1500 * 1024; // khi không có R2: ảnh lưu trong D1, mỗi dòng tối đa ~2MB
 const KEY_RE = /^\d{4}\/[a-f0-9-]{36}\.[a-z0-9]{2,5}$/;
 
@@ -167,7 +168,7 @@ async function dropMedia(env, ...keys) {
   const ks = keys.filter((k) => k && KEY_RE.test(k));
   if (!ks.length) return;
   if (env.BUCKET) await Promise.all(ks.map((k) => env.BUCKET.delete(k).catch(() => {})));
-  await env.DB.batch(ks.map((k) => env.DB.prepare('DELETE FROM media WHERE key = ?').bind(k))).catch(() => {});
+  await env.DB.batch(ks.flatMap((k) => [env.DB.prepare('DELETE FROM media WHERE key = ?').bind(k), env.DB.prepare("DELETE FROM media WHERE key LIKE ? ESCAPE '\\'").bind(k.replace(/[%_]/g, '\\$&') + '~p%')])).catch(() => {});
 }
 
 const q = (name) => `"${name}"`;
@@ -261,8 +262,21 @@ async function handle(request, env, url, parts) {
       await env.BUCKET.put(key, request.body, { httpMetadata: { contentType: type } });
       return json({ key });
     }
-    // chế độ không R2: lưu ảnh trực tiếp trong D1
-    if (kind !== 'image') return fail('Video và nhạc cần bật R2. Hiện chỉ lưu được ảnh.', 415);
+    // chế độ không R2: nhạc được tải từng mảnh (x-part: i/n), ghép lại khi phát
+    if (kind === 'audio') {
+      const m = /^(\d{1,2})\/(\d{1,2})$/.exec(request.headers.get('x-part') || '');
+      if (!m) return fail('Thiếu thông tin mảnh nhạc', 400);
+      const i = +m[1], n = +m[2];
+      if (n < 1 || n > 12 || i >= n) return fail('Nhạc quá lớn (tối đa 12MB)', 413);
+      let k = key;
+      if (i > 0) { k = request.headers.get('x-key') || ''; if (!KEY_RE.test(k)) return fail('Khoá không hợp lệ', 400); }
+      const buf = await request.arrayBuffer();
+      if (!buf.byteLength) return fail('Tệp rỗng', 400);
+      if (buf.byteLength > 1100 * 1024) return fail('Mảnh nhạc quá lớn', 413);
+      await env.DB.prepare('INSERT OR REPLACE INTO media (key, type, size, data) VALUES (?, ?, ?, ?)').bind(`${k}~p${i}`, type, buf.byteLength, buf).run();
+      return json({ key: k });
+    }
+    if (kind !== 'image') return fail('Video cần bật R2. Hiện chỉ lưu được ảnh và nhạc.', 415);
     const buf = await request.arrayBuffer();
     if (!buf.byteLength) return fail('Tệp rỗng', 400);
     if (buf.byteLength > D1_IMAGE_MAX) return fail('Ảnh quá lớn (tối đa ~1,5MB), hãy chọn ảnh nhỏ hơn.', 413);
@@ -294,7 +308,25 @@ async function handle(request, env, url, parts) {
     }
     // ảnh lưu trong D1
     const row = await env.DB.prepare('SELECT type, data FROM media WHERE key = ?').bind(key).first();
-    if (!row) return fail('Không tìm thấy', 404);
+    if (!row) {
+      // nhạc lưu theo mảnh: ghép lại và hỗ trợ Range để tua được
+      const { results } = await env.DB.prepare('SELECT type, data FROM media WHERE key LIKE ? ESCAPE \'\\\' ORDER BY CAST(substr(key, instr(key, \'~p\') + 2) AS INTEGER)').bind(key.replace(/[%_]/g, '\\$&') + '~p%').all();
+      if (!results.length) return fail('Không tìm thấy', 404);
+      const parts = results.map((r) => (r.data instanceof ArrayBuffer ? new Uint8Array(r.data) : new Uint8Array(r.data)));
+      const total = parts.reduce((t, x) => t + x.length, 0);
+      const all = new Uint8Array(total);
+      let o = 0; for (const x of parts) { all.set(x, o); o += x.length; }
+      const h = { 'content-type': results[0].type, 'accept-ranges': 'bytes', 'cache-control': 'private, max-age=31536000, immutable', 'x-content-type-options': 'nosniff' };
+      const rg = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get('range') || '');
+      if (rg && (rg[1] || rg[2])) {
+        let st = rg[1] ? +rg[1] : Math.max(0, total - +rg[2]);
+        let en = rg[1] && rg[2] ? Math.min(+rg[2], total - 1) : total - 1;
+        if (st >= total || st > en) return new Response(null, { status: 416, headers: { 'content-range': `bytes */${total}` } });
+        h['content-range'] = `bytes ${st}-${en}/${total}`;
+        return new Response(method === 'HEAD' ? null : all.slice(st, en + 1), { status: 206, headers: h });
+      }
+      return new Response(method === 'HEAD' ? null : all, { headers: h });
+    }
     const d = row.data;
     const body = d instanceof ArrayBuffer ? d : new Uint8Array(d).buffer;
     return new Response(method === 'HEAD' ? null : body, {

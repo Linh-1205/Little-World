@@ -602,7 +602,7 @@ function renderPlaylist() {
   const hasBgm = S.settings.bgm_key || S.settings.bgm_url;
   const b = $('#playlist-body');
   b.replaceChildren(
-    h('div', { class: 'bgm-card glass reveal' }, h('div', null, h('b', null, 'Nhạc nền của website'), h('div', { class: 'muted', style: { fontSize: '.88rem' } }, hasBgm ? 'Đã có nhạc nền — dùng nút ♪ trên thanh menu để bật/tắt.' : 'Chưa có nhạc nền. Tải một bản nhạc lên hoặc dán link.')), h('button', { class: 'btn ghost sm', onclick: openBgmForm }, hasBgm ? 'Đổi nhạc nền' : 'Chọn nhạc nền')),
+    h('div', { class: 'bgm-card glass reveal' }, h('div', null, h('b', null, 'Nhạc nền của website'), h('div', { class: 'muted', style: { fontSize: '.88rem' } }, hasBgm ? 'Đã có nhạc nền — dùng nút ♪ trên thanh menu để bật/tắt.' : 'Chưa có nhạc nền. Chọn một file nhạc từ máy của bạn.')), h('button', { class: 'btn ghost sm', onclick: openBgmForm }, hasBgm ? 'Đổi nhạc nền' : 'Chọn nhạc nền')),
     S.songs.length
       ? h('div', { class: 'songs' }, S.songs.map((s) => {
           const em = embedUrl(s.url);
@@ -621,27 +621,49 @@ function renderPlaylist() {
       : empty('Chưa có bài hát nào. Thêm bài hát đầu tiên của hai bạn nhé.'),
   );
 }
+// tải nhạc lên: có R2 thì gửi một lần, không thì cắt mảnh 1MB lưu trong D1
+const AUDIO_EXT = { mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/mp4', mp4: 'audio/mp4', ogg: 'audio/ogg', oga: 'audio/ogg', wav: 'audio/wav', weba: 'audio/webm', webm: 'audio/webm' };
+async function uploadAudio(file, onProg) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const type = AUDIO_EXT[ext] || (file.type === 'audio/x-m4a' ? 'audio/mp4' : file.type);
+  if (!Object.values(AUDIO_EXT).includes(type)) throw new Error('Định dạng nhạc chưa hỗ trợ. Hãy chọn file .mp3, .m4a, .wav hoặc .ogg nhé.');
+  if (CAPS.r2) { if (file.size > 25 * 1024 * 1024) throw new Error('File nhạc tối đa 25MB'); return uploadBlob(new Blob([file], { type })); }
+  const CH = 1024 * 1024, n = Math.ceil(file.size / CH);
+  if (n > 12) throw new Error('File nhạc tối đa 12MB. Bạn có thể cắt ngắn hoặc nén nhỏ lại (ví dụ 128kbps) nhé.');
+  let key = '';
+  for (let i = 0; i < n; i++) {
+    const r = await fetch('/api/upload', { method: 'POST', credentials: 'same-origin', headers: { 'x-lw': '1', 'content-type': type, 'x-part': `${i}/${n}`, ...(key ? { 'x-key': key } : {}) }, body: file.slice(i * CH, (i + 1) * CH) }).catch(() => null);
+    const d = r ? await r.json().catch(() => ({})) : {};
+    if (!r || !r.ok) throw new Error(d.error || 'Không tải được nhạc lên, thử lại nhé.');
+    key = d.key; onProg && onProg((i + 1) / n);
+  }
+  return key;
+}
 function openBgmForm() {
   let file = null;
-  const input = h('input', { type: 'file', accept: 'audio/*' });
-  input.addEventListener('change', () => (file = input.files[0] || null));
+  const input = h('input', { type: 'file', accept: 'audio/*,.mp3,.m4a,.wav,.ogg' });
+  const info = h('div', { class: 'muted', style: { fontSize: '.85rem' } }, 'Chọn file nhạc có sẵn trong máy (mp3, m4a, wav, ogg · tối đa ' + (CAPS.r2 ? '25' : '12') + 'MB).');
+  input.addEventListener('change', () => { file = input.files[0] || null; info.textContent = file ? `Đã chọn: ${file.name} (${(file.size / 1048576).toFixed(1)}MB)` : info.textContent; });
   const m = formModal({
     title: 'Nhạc nền',
     values: { bgm_url: S.settings.bgm_url || '' },
-    fields: [{ name: 'bgm_url', label: 'Dán link file nhạc (.mp3 trực tiếp)', type: 'url', ph: 'https://…/bai-hat.mp3' }],
+    fields: [{ name: 'bgm_url', label: 'Hoặc dán link file nhạc (.mp3 trực tiếp)', ph: 'https://…/bai-hat.mp3' }],
     onSubmit: async (v) => {
       const body = {};
       if (file) {
-        if (file.size > 25 * 1024 * 1024) throw new Error('File nhạc tối đa 25MB');
-        body.bgm_key = await uploadBlob(file);
+        toast('Đang tải nhạc lên…', 2500);
+        body.bgm_key = await uploadAudio(file);
         body.bgm_url = '';
-      } else body.bgm_url = v.bgm_url;
+      } else {
+        body.bgm_url = normUrl(v.bgm_url);
+        if (body.bgm_url && embedUrl(body.bgm_url)) throw new Error('Đây là link YouTube/Spotify nên không làm nhạc nền được. Hãy chọn file nhạc từ máy, hoặc thêm bài này ở danh sách bài hát bên dưới nhé.');
+      }
       await api('settings', { method: 'PUT', body });
       await refresh(() => { renderPlaylist(); }); initBgm(true);
     },
     extra: S.settings.bgm_key || S.settings.bgm_url ? h('button', { type: 'button', class: 'btn ghost danger', onclick: async () => { await api('settings', { method: 'PUT', body: { bgm_key: '', bgm_url: '' } }); await refresh(renderPlaylist); initBgm(true); m.close(); } }, 'Tắt nhạc nền') : null,
   });
-  if (CAPS.r2) $('form', m.el).prepend(h('div', { class: 'fld' }, h('span', { class: 'lbl' }, 'Tải nhạc từ máy (tối đa 25MB)'), input));
+  $('form', m.el).prepend(h('div', { class: 'fld' }, h('span', { class: 'lbl' }, 'Tải nhạc từ máy'), input, info));
 }
 function bgmSrc() { return S.settings.bgm_key ? mu(S.settings.bgm_key) : S.settings.bgm_url || ''; }
 function initBgm(force) {
