@@ -15,7 +15,7 @@ const NB = (() => {
   let order = [];
   let active = null;
   let M = {};
-  let frame, view, rings, indic, prevB, nextB, writer, area, saveNote, bar;
+  let frame, view, rings, indic, prevB, nextB, area, saveNote, bar;
   let raf = 0;
 
   const uid = () => Math.random().toString(36).slice(2, 10);
@@ -49,22 +49,22 @@ const NB = (() => {
     saveNote = h('span', { class: 'nb-save muted' }, '');
     bar = h('div', { class: 'nb-bar' },
       h('div', { class: 'nb-bar-l' },
-        h('button', { class: 'btn ghost sm', type: 'button', onclick: () => openWriter(true) }, '✎ Viết chữ'),
         h('button', { class: 'btn ghost sm', type: 'button', onclick: pickPhoto }, '＋ Dán ảnh'),
         h('button', { class: 'btn ghost sm', type: 'button', onclick: addPage }, '＋ Thêm trang'),
+        h('span', { class: 'hint nb-tip' }, 'Bấm vào dòng kẻ là viết được ngay'),
       ),
       h('div', { class: 'nb-bar-r' }, saveNote, indic),
     );
-    area = h('textarea', { class: 'nb-area', rows: 5, placeholder: 'Viết gì đó vào trang sổ… Chữ sẽ tự chạy quanh những tấm ảnh bạn dán.', maxlength: 30000 });
+    // ô nhập vô hình: gõ trực tiếp lên trang, con trỏ vẽ ngay trên dòng kẻ
+    area = h('textarea', { class: 'nb-area', rows: 1, maxlength: 30000, 'aria-label': 'Viết vào trang sổ', autocapitalize: 'sentences' });
     area.addEventListener('input', onType);
-    writer = h('div', { class: 'nb-write glass', hidden: true },
-      h('div', { class: 'nb-write-h' }, h('b', null, 'Viết vào trang sổ'), h('button', { class: 'btn primary sm', type: 'button', onclick: () => openWriter(false) }, 'Xong')),
-      area,
-      h('p', { class: 'hint' }, 'Mẹo: bấm vào một dòng chữ trên trang để viết tiếp ngay chỗ đó. Kéo ảnh đi đâu, chữ sẽ chạy theo.'),
-    );
+    area.addEventListener('focus', () => st[active] && paintCaret(st[active]));
+    area.addEventListener('blur', () => { trimTail(); st[active] && paintCaret(st[active]); });
+    document.addEventListener('selectionchange', () => document.activeElement === area && st[active] && paintCaret(st[active]));
+    frame.append(area);
     const file = h('input', { type: 'file', accept: 'image/*', multiple: true, hidden: true, id: 'nbFile' });
     file.addEventListener('change', async () => { const l = [...file.files]; file.value = ''; for (const f of l) await addPhoto(f); });
-    host.append(h('div', { class: 'nb-wrap' }, frame, bar, writer, file));
+    host.append(h('div', { class: 'nb-wrap' }, frame, bar, file));
 
     // lật trang bằng vuốt ngang / bàn phím
     let sx = 0, sy = 0, tracking = false;
@@ -214,6 +214,7 @@ const NB = (() => {
 
   function buildFree(s) {
     const doc = docOf(s.id);
+    if (!doc.pages.length) doc.pages.push({ photos: [] });
     layoutText(s, doc); // có thể tự thêm trang khi chữ dài
     s.pages.forEach((p) => p.el.remove());
     s.pages = doc.pages.map((pg, i) => {
@@ -224,6 +225,7 @@ const NB = (() => {
         h('span', { class: 'nb-fp-n' }, String(s.N + i + 1)),
       );
       el.addEventListener('pointerdown', (e) => { if (!e.target.closest('.nb-pi')) select(s, null); });
+      el.addEventListener('click', (e) => { if (!e.target.closest('.nb-pi,.nb-fp-x')) clickPage(s, i, e); });
       s.track.append(el);
       return { el, pg };
     });
@@ -333,19 +335,100 @@ const NB = (() => {
   }
 
   function paintText(s) {
-    s.pages.forEach(({ el }, i) => {
+    const doc = docOf(s.id);
+    s.pages.forEach(({ el, pg }, i) => {
       const layer = $('.nb-txt', el);
-      layer.replaceChildren(...(s.lines[i] || []).map((r) => {
-        const d = h('div', { class: 'nb-ln', style: { left: M.px + r.x + 'px', top: M.py + r.line * LINE + 'px' } }, r.text);
-        d.addEventListener('click', (e) => {
-          const x = e.clientX - d.getBoundingClientRect().left;
-          let k = 0;
-          while (k < r.text.length && W(r.text.slice(0, k + 1)) < x) k++;
-          openWriter(true, r.off + k);
-        });
-        return d;
-      }));
+      const kids = (s.lines[i] || []).map((r) => h('div', { class: 'nb-ln', style: { left: M.px + r.x + 'px', top: M.py + r.line * LINE + 'px' } }, r.text));
+      if (i === 0 && !doc.text.trim() && !pg.photos.length) kids.push(h('div', { class: 'nb-ln nb-hintln', style: { left: M.px + 'px', top: M.py + 'px' } }, 'Bấm vào dòng kẻ để viết…'));
+      layer.replaceChildren(...kids);
     });
+    paintCaret(s);
+  }
+
+  /* ───── con trỏ & gõ chữ ngay trên trang ───── */
+  const linesPerPage = () => Math.max(1, Math.floor(M.ch / LINE));
+
+  function caretSpot(s) {
+    if (document.activeElement !== area || s.id !== active) return null;
+    const doc = docOf(s.id), c = area.selectionStart, L = linesPerPage();
+    const runs = [];
+    (s.lines || []).forEach((ls, i) => ls.forEach((r) => runs.push({ r, gl: i * L + r.line })));
+    let last = null;
+    for (const q of runs) if (q.r.off <= c) last = q;
+    let gl, x = 0;
+    if (last && c <= last.r.off + last.r.text.length) {
+      gl = last.gl;
+      x = last.r.x + W(last.r.text.slice(0, c - last.r.off));
+    } else if (last) {
+      const between = doc.text.slice(last.r.off + last.r.text.length, c);
+      const nl = (between.match(/\n/g) || []).length;
+      if (!nl) { gl = last.gl; x = last.r.x + W(last.r.text) + W(' ') * between.length; }
+      else gl = last.gl + nl;
+    } else gl = (doc.text.slice(0, c).match(/\n/g) || []).length;
+    const pi = Math.floor(gl / L);
+    if (pi >= s.pages.length) return null;
+    return { pi, line: gl % L, x: Math.min(x, M.cw) };
+  }
+
+  function paintCaret(s) {
+    $$('.nb-caret', frame).forEach((e) => e.remove());
+    const sp = caretSpot(s);
+    if (!sp) return;
+    s.pages[sp.pi].el.append(h('div', { class: 'nb-caret', style: { left: M.px + sp.x + 'px', top: M.py + sp.line * LINE + 4 + 'px' } }));
+    // ô nhập vô hình đi theo con trỏ (để bộ gõ tiếng Việt hiện đúng chỗ)
+    area.style.left = (s.N + sp.pi) * M.pw + M.px + sp.x - s.cur * M.per * M.pw + 'px';
+    area.style.top = M.py + sp.line * LINE + 'px';
+  }
+
+  // bấm lên trang: tìm vị trí chữ gần nhất rồi cho gõ luôn
+  function clickPage(s, pi, e) {
+    const doc = docOf(s.id), L = linesPerPage();
+    const r = s.pages[pi].el.getBoundingClientRect();
+    const x = e.clientX - r.left - M.px;
+    const line = Math.min(L - 1, Math.max(0, Math.floor((e.clientY - r.top - M.py) / LINE)));
+    const g = pi * L + line;
+    const runs = [];
+    (s.lines || []).forEach((ls, i) => ls.forEach((q) => runs.push({ r: q, gl: i * L + q.line })));
+    let caret, pad = 0;
+    const here = runs.filter((q) => q.gl === g);
+    if (here.length) {
+      let best = here[0], bd = Infinity;
+      here.forEach((q) => {
+        const w = W(q.r.text), d = x < q.r.x ? q.r.x - x : x > q.r.x + w ? x - q.r.x - w : 0;
+        if (d < bd) (bd = d), (best = q);
+      });
+      const q = best.r;
+      let k = 0;
+      while (k < q.text.length && q.x + W(q.text.slice(0, k + 1)) - W(q.text.charAt(k)) / 2 < x) k++;
+      caret = q.off + k;
+    } else {
+      const prev = [...runs].reverse().find((q) => q.gl < g);
+      const next = runs.find((q) => q.gl > g);
+      // đi qua các dòng trống (mỗi dòng trống là một ký tự xuống hàng) tới đúng dòng đã bấm
+      const through = (from, fromGl, toOff) => {
+        const nl = (doc.text.slice(from, toOff).match(/\n/g) || []).length;
+        let pos = from;
+        for (let n = Math.min(g - fromGl, nl); n > 0; n--) pos = doc.text.indexOf('\n', pos) + 1;
+        return pos;
+      };
+      if (prev && next) caret = through(prev.r.off + prev.r.text.length, prev.gl, next.r.off);
+      else if (prev) { caret = doc.text.length; pad = g - prev.gl; }
+      else if (next) caret = through(0, 0, next.r.off);
+      else { caret = 0; pad = g; }
+    }
+    if (pad > 0) { doc.text += '\n'.repeat(pad); caret = doc.text.length; }
+    area.value = doc.text;
+    area.focus({ preventScroll: true });
+    area.setSelectionRange(caret, caret);
+    if (pad > 0) relayoutText(s);
+    paintCaret(s);
+  }
+
+  function trimTail() {
+    const s = st[active];
+    if (!s) return;
+    const doc = docOf(s.id), t = doc.text.replace(/\n+$/, '');
+    if (t !== doc.text) { doc.text = t; area.value = t; relayoutText(s); save(s); }
   }
 
   function relayoutText(s) {
@@ -518,18 +601,7 @@ const NB = (() => {
     save(s);
   }
 
-  /* ───── viết chữ ───── */
-  function openWriter(on, caret) {
-    const s = st[active];
-    if (!s) return;
-    writer.hidden = !on;
-    if (on) {
-      area.value = docOf(s.id).text;
-      area.focus();
-      if (caret != null) area.setSelectionRange(caret, caret);
-      writer.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }
-  }
+  /* ───── nhập chữ ───── */
   function onType() {
     const s = st[active];
     const doc = docOf(s.id);
@@ -547,6 +619,7 @@ const NB = (() => {
         if (target !== s.cur) showSpread(s, target);
       }
       refresh(s);
+      paintCaret(s);
     });
     save(s);
   }
@@ -583,6 +656,7 @@ const NB = (() => {
         if (st[id]?.dirty) return;
         const d = nb?.[id];
         docs[id] = d && Array.isArray(d.pages) ? { text: d.text || '', pages: d.pages.map((p) => ({ photos: p.photos || [] })) } : docs[id] || { text: '', pages: [] };
+        if (!docs[id].pages.length) docs[id].pages = [{ photos: [] }, { photos: [] }];
       });
       schedule(true);
     },
@@ -591,7 +665,7 @@ const NB = (() => {
       flush();
       active = id;
       Object.values(st).forEach((s) => s.el.classList.toggle('on', s.id === id));
-      writer.hidden = true;
+      area.blur();
       requestAnimationFrame(() => {
         metrics();
         Object.values(st).forEach(relayout);

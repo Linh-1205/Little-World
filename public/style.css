@@ -470,3 +470,13 @@ input[type=file]{padding:.6em}
 .nb-face.back{transform:rotateY(180deg)}
 .nb-shade{position:absolute;inset:0;background:var(--navy2);opacity:0;pointer-events:none;z-index:5}
 .nb-face .nb-art{z-index:0}
+
+/* gõ chữ trực tiếp trên trang */
+.nb-area{position:absolute;z-index:1;left:0;top:0;width:2px;height:32px;min-height:0;padding:0;margin:0;border:0;opacity:0;resize:none;overflow:hidden;font-size:16px;pointer-events:none;background:none}
+.nb-fp{cursor:text}
+.nb-ln{pointer-events:none;cursor:text}
+.nb-hintln{color:var(--ink2);font-style:italic;opacity:.8}
+.nb-caret{position:absolute;width:2px;height:24px;background:var(--rose3);pointer-events:none;animation:caret 1s steps(1) infinite;z-index:1}
+@keyframes caret{50%{opacity:0}}
+.nb-tip{align-self:center}
+@media(max-width:560px){.nb-tip{display:none}}
