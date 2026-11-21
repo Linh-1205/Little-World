@@ -478,5 +478,9 @@ input[type=file]{padding:.6em}
 .nb-hintln{color:var(--ink2);font-style:italic;opacity:.8}
 .nb-caret{position:absolute;width:2px;height:24px;background:var(--rose3);pointer-events:none;animation:caret 1s steps(1) infinite;z-index:1}
 @keyframes caret{50%{opacity:0}}
-.nb-tip{align-self:center}
-@media(max-width:560px){.nb-tip{display:none}}
+
+/* thanh công cụ ảnh: đổi chỗ khi bị che */
+.nb-pi.sel.tb-down .nb-tb{bottom:auto;top:calc(100% + 18px)}
+.nb-pi.sel.tb-in .nb-tb{bottom:auto;top:50%;transform:translate(-50%,-50%)}
+.nb-pi.sel.tb-down .nb-knob.rot,.nb-pi.sel.tb-in .nb-knob.rot{top:auto;bottom:-36px;right:auto;left:-12px}
+.nb-pi.sel.tb-in .nb-knob.rot{top:-13px;bottom:auto}

@@ -51,7 +51,6 @@ const NB = (() => {
       h('div', { class: 'nb-bar-l' },
         h('button', { class: 'btn ghost sm', type: 'button', onclick: pickPhoto }, '＋ Dán ảnh'),
         h('button', { class: 'btn ghost sm', type: 'button', onclick: addPage }, '＋ Thêm trang'),
-        h('span', { class: 'hint nb-tip' }, 'Bấm vào dòng kẻ là viết được ngay'),
       ),
       h('div', { class: 'nb-bar-r' }, saveNote, indic),
     );
@@ -83,6 +82,7 @@ const NB = (() => {
       else if (!typing && (e.key === 'Delete' || e.key === 'Backspace') && st[active]?.sel) removePhoto(st[active], st[active].sel);
     });
     window.addEventListener('resize', () => schedule(true));
+    window.addEventListener('scroll', () => { const s = st[active]; if (s?.sel) { cancelAnimationFrame(build.sc); build.sc = requestAnimationFrame(() => placeToolbar(s)); } }, { passive: true });
     document.addEventListener('visibilitychange', () => document.hidden && flush());
     document.fonts?.ready.then(() => schedule(true));
   }
@@ -107,16 +107,20 @@ const NB = (() => {
     raf = requestAnimationFrame(() => {
       if (!frame || !frame.clientWidth) return;
       metrics();
-      Object.values(st).forEach((s) => relayout(s));
-      if (active) refresh(st[active]);
+      Object.values(st).forEach((s) => relayout(s, schedule.full));
+      if (active) { refresh(st[active]); placeToolbar(st[active]); }
       schedule.full = false;
     });
   }
 
-  function relayout(s) {
+  function relayout(s, force) {
     const { px, py, cw, ch, pw } = M;
     s.flow.style.cssText = `left:${px}px;top:${py}px;width:${cw}px;height:${ch}px;column-width:${cw}px;column-gap:${2 * px}px`;
     s.N = Math.max(1, Math.round((s.flow.scrollWidth + 2 * px) / pw));
+    // chỉ dựng lại trang tự do khi kích thước hoặc số trang thật sự đổi (tránh làm mất cú bấm chuột)
+    const sig = [M.W, M.H, M.pw, M.px, s.N].join('|');
+    if (!force && sig === s.sig && s.pages.length) return;
+    s.sig = sig;
     buildFree(s);
   }
 
@@ -339,7 +343,7 @@ const NB = (() => {
     s.pages.forEach(({ el, pg }, i) => {
       const layer = $('.nb-txt', el);
       const kids = (s.lines[i] || []).map((r) => h('div', { class: 'nb-ln', style: { left: M.px + r.x + 'px', top: M.py + r.line * LINE + 'px' } }, r.text));
-      if (i === 0 && !doc.text.trim() && !pg.photos.length) kids.push(h('div', { class: 'nb-ln nb-hintln', style: { left: M.px + 'px', top: M.py + 'px' } }, 'Bấm vào dòng kẻ để viết…'));
+      if (i === 0 && !doc.text.trim() && !pg.photos.length) kids.push(h('div', { class: 'nb-ln nb-hintln', style: { left: M.px + 'px', top: M.py + 'px' } }, 'Viết một điều nhỏ xinh của hai mình vào đây nhé ♡'));
       layer.replaceChildren(...kids);
     });
     paintCaret(s);
@@ -465,9 +469,22 @@ const NB = (() => {
   const findPhoto = (s, id) => { for (const p of docOf(s.id).pages) { const ph = p.photos.find((x) => x.id === id); if (ph) return [ph, p]; } return [null, null]; };
 
   function select(s, id) {
-    if (s.sel === id) return;
-    s.sel = id;
-    s.pe.forEach((pe, k) => pe.classList.toggle('sel', k === id));
+    if (s.sel !== id) {
+      s.sel = id;
+      s.pe.forEach((pe, k) => pe.classList.toggle('sel', k === id));
+    }
+    placeToolbar(s);
+  }
+
+  // thanh công cụ nằm trên ảnh; nếu bị thanh menu / mép sổ che thì chuyển xuống dưới hoặc vào trong ảnh
+  function placeToolbar(s) {
+    s.pe.forEach((pe) => pe.classList.remove('tb-down', 'tb-in'));
+    const pe = s.sel && s.pe.get(s.sel);
+    if (!pe) return;
+    const r = pe.getBoundingClientRect(), fr = frame.getBoundingClientRect();
+    const top = Math.max(fr.top, 76), bot = Math.min(fr.bottom, innerHeight);
+    if (r.top - top >= 64) return;
+    pe.classList.add(bot - r.bottom >= 64 ? 'tb-down' : 'tb-in');
   }
   function front(s, ph) {
     ph.z = Math.max(0, ...docOf(s.id).pages.flatMap((p) => p.photos.map((x) => x.z || 0))) + 1;
@@ -519,6 +536,7 @@ const NB = (() => {
       removeEventListener('pointerup', onUp);
       removeEventListener('pointercancel', onUp);
       if (moved) { relayoutText(s); save(s); }
+      placeToolbar(s);
     };
     addEventListener('pointermove', onMove);
     addEventListener('pointerup', onUp);
@@ -668,8 +686,9 @@ const NB = (() => {
       area.blur();
       requestAnimationFrame(() => {
         metrics();
-        Object.values(st).forEach(relayout);
+        Object.values(st).forEach((x) => relayout(x, true));
         refresh(st[id]);
+        placeToolbar(st[id]);
       });
     },
     schedule,
